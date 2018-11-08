@@ -8,11 +8,12 @@ SOURCES=${TOOLCHAINS}/sources
 NATIVES=${TOOLCHAINS}/natives
 LIBRARIES=${TOOLCHAINS}/libraries
 XCOMPILERS=${TOOLCHAINS}/xcompilers
+LOGS=${TOOLCHAINS}/logs
 
 HOSTARCH=$(cc -dumpmachine)
 
 NTHREADS=$(echo $(nproc)/2+1 | bc)
-MAKEFLAGS="-j\${NTHREADS} V=1"
+export MAKEFLAGS="-j\${NTHREADS} V=1"
 
 SCPPORT=22
 
@@ -109,13 +110,13 @@ function cross_isl () {
 	CXX="ccache ${HOSTARCH}-g++" \
 	CFLAGS="${COMMON_CFLAGS}" \
 	CXXFLAGS="${COMMON_CFLAGS}" \
-	>> ${XISLBIN}/build.log 2>&1 || exit 1
+	> ${LOGS}/x${ISLPKG}.log 2>&1 || exit 1
 	echo "Done"
 	echo -n "Compiling ISL for CrossGCC..."
-	make >> ${XISLBIN}/build.log 2>&1 || exit 1
+	make >> ${LOGS}/x${ISLPKG}.log 2>&1 || exit 1
 	echo "Done."
 	echo -n "Installing ISL for CrossGCC..."
-	make install >> ${XISLBIN}/build.log 2>&1 || exit 1
+	make install >> ${LOGS}/x${ISLPKG}.log 2>&1 || exit 1
 	echo "Done."
 	echo ""
 	cd ..
@@ -149,13 +150,13 @@ function binutils () {
 	CXXFLAGS="${COMMON_CFLAGS}" \
 	CFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
 	CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
-	>> ${BINUTILSBIN}/build.log 2>&1 || exit 1
+	> ${LOGS}/${BINUTILSPKG}.log 2>&1 || exit 1
 	echo "Done"
 	echo -n "Compiling BINUTILS..."
-	make >> ${BINUTILSBIN}/build.log 2>&1 || exit 1
+	make >> ${LOGS}/${BINUTILSPKG}.log 2>&1 || exit 1
 	echo "Done."
 	echo -n "Installing BINUTILS..."
-	make install-strip >> ${BINUTILSBIN}/build.log 2>&1 || exit 1
+	make install-strip >> ${LOGS}/${BINUTILSPKG}.log 2>&1 || exit 1
 	# program_transform_regex || exit 1
 	echo "Done."
 	echo ""
@@ -195,13 +196,13 @@ function cross_gcc () {
 	CXXFLAGS="${COMMON_CFLAGS}" \
 	CFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
 	CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
-	>> ${XGCCBIN}/build.log 2>&1 || exit 1
+	> ${LOGS}/x${GCCPKG}.log 2>&1 || exit 1
 	echo "Done"
 	echo -n "Compiling CrossGCC..."
-	make >> ${XGCCBIN}/build.log 2>&1 || exit 1
+	make >> ${LOGS}/x${GCCPKG}.log 2>&1 || exit 1
 	echo "Done."
 	echo -n "Installing CrossGCC..."
-	make install-strip >> ${XGCCBIN}/build.log 2>&1 || exit 1
+	make install-strip >> ${LOGS}/x${GCCPKG}.log 2>&1 || exit 1
 	echo "Done."
 	echo "You can find the final CrossGCC binaries for ${TARGETARCH} here: ${XGCCBIN}"
 	echo ""
@@ -210,7 +211,7 @@ function cross_gcc () {
 	cat >${XGCCBIN}.source <<-EOF
 		# To prepare the build environment launch:
 		#
-		# source ${XGCCBIN}.source
+		# source ${XGCCBIN}.source]
 
 		export PATH=${XGCCBIN}/bin:\$PATH
 		export SYSROOT=${SYSROOT}
@@ -266,13 +267,13 @@ function isl () {
 	--disable-shared --enable-static --enable-multiarch \
 	CC="ccache ${TARGETARCH}-gcc" \
 	CFLAGS="${COMMON_CFLAGS} --sysroot=${SYSROOT}" \
-	>> ${ISLBIN}/build.log 2>&1 || exit 1
+	> ${LOGS}/${ISLPKG}.log 2>&1 || exit 1
 	echo "Done"
 	echo -n "Compiling ISL for Final GCC..."
-	make >> ${ISLBIN}/build.log 2>&1 || exit 1
+	make >> ${LOGS}/${ISLPKG}.log 2>&1 || exit 1
 	echo "Done."
 	echo -n "Installing ISL for Final GCC..."
-	make install >> ${ISLBIN}/build.log 2>&1 || exit 1
+	make install >> ${LOGS}/${BINUTILSPKG}.log 2>&1 || exit 1
 	echo "Done."
 	echo ""
 	cd ..
@@ -317,13 +318,13 @@ function final_gcc () {
 	CFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
 	CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
 	host_configargs="gcc_cv_objdump=${TARGETARCH}-objdump" \
-	>> ${GCCBIN}/build.log 2>&1 || exit 1
+	> ${LOGS}/${GCCSPKG}.log 2>&1 || exit 1
 	echo "Done"
 	echo -n "Compiling Final GCC..."
-	make >> ${GCCBIN}/build.log 2>&1 || exit 1
+	make >> ${LOGS}/${GCCSPKG}.log 2>&1 || exit 1
 	echo "Done."
 	echo -n "Installing Final GCC..."
-	make DESTDIR=${GCCBIN} install-strip >> ${GCCBIN}/build.log 2>&1 || exit 1
+	make DESTDIR=${GCCBIN} install-strip >> ${LOGS}/${GCCSPKG}.log 2>&1 || exit 1
 	echo "Done."
 	echo "You can find the final GCC binaries for ${TARGETARCH} here: ${GCCBIN}"
 	echo ""
@@ -360,9 +361,10 @@ function all_steps () {
 }
 
 test ! -d ${TOOLCHAINS} && mkdir -p ${TOOLCHAINS}
+test ! -d ${LOGS} && mkdir -p ${LOGS}
 
 case "${1}" in
-	-h|--help)
+	-h|--help|"")
 		cat <<-EOF
 			Help:
 
