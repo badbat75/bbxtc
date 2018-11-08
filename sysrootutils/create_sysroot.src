@@ -3,8 +3,6 @@ http://archive.raspbian.org/raspbian/pool/main/g/glibc/libc6_2.24-11+deb9u3_armh
 http://archive.raspbian.org/raspbian/pool/main/g/glibc/libc6-dev_2.24-11+deb9u3_armhf.deb
 http://archive.raspbian.org/raspbian/pool/main/g/gmp/libgmp10_6.1.2+dfsg-1_armhf.deb
 http://archive.raspbian.org/raspbian/pool/main/g/gmp/libgmp-dev_6.1.2+dfsg-1_armhf.deb
-http://archive.raspbian.org/raspbian/pool/main/i/isl/libisl15_0.18-1_armhf.deb
-http://archive.raspbian.org/raspbian/pool/main/i/isl/libisl-dev_0.18-1_armhf.deb
 http://archive.raspbian.org/raspbian/pool/main/l/linux-4.9/linux-libc-dev_4.9.82-1%2bdeb9u3%2brpi1_armhf.deb
 http://archive.raspbian.org/raspbian/pool/main/m/mpclib3/libmpc3_1.0.3-1_armhf.deb
 http://archive.raspbian.org/raspbian/pool/main/m/mpclib3/libmpc-dev_1.0.3-1_armhf.deb
