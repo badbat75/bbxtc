@@ -1,7 +1,3 @@
-.build
-.config
-.config.old
 build.log
 sysrootutils/packages/*
-sysroots
 tests/helloworld

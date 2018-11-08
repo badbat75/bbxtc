@@ -1,5 +1,0 @@
-# configure --build=x86_64-linux-gnu --host=arm-linaro-linux-gnueabihf --target=arm-linaro-linux-gnueabihf --with-sysroot=$SYSROOT -v --enable-languages=c,c++ --prefix=/usr --program-suffix=-8 --enable-shared --enable-linker-build-id --libexecdir=/usr/lib --without-included-gettext --enable-threads=posix --libdir=/usr/lib --enable-nls --enable-clocale=gnu --enable-libstdcxx-debug --enable-libstdcxx-time=yes --with-default-libstdcxx-abi=new --enable-gnu-unique-object --disable-libitm --disable-libquadmath --enable-plugin --with-system-zlib --enable-gtk-cairo --with-arch-directory=arm --with-target-system-zlib --enable-objc-gc=auto --enable-multiarch --disable-sjlj-exceptions --with-arch=armv6 --with-fpu=vfp --with-float=hard --enable-checking=release --with-gmp-include=$SYSROOT/usr/include/arm-linux-gnueabihf --with-gmp-lib=$SYSROOT/usr/lib/arm-linux-gnueabihf
-
-# make -j$(echo $(nproc)/2+1 | bc)
-
-# make DESTDIR=$TARGETDIR install-strip
