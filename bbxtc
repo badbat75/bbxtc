@@ -11,6 +11,9 @@ XCOMPILERS=${TOOLCHAINS}/xcompilers
 
 HOSTARCH=$(cc -dumpmachine)
 
+NTHREADS=$(echo $(nproc)/2+1 | bc)
+MAKEFLAGS="-j\${NTHREADS} V=1"
+
 # Not used yet
 function program_transform_regex () {
 	### Apply objdump libcc1 configure bug workaround
@@ -107,7 +110,7 @@ function cross_isl () {
 	>> ${XISLBIN}/build.log 2>&1 || exit 1
 	echo "Done"
 	echo -n "Compiling ISL for CrossGCC..."
-	make -j${NTHREADS} >> ${XISLBIN}/build.log 2>&1 || exit 1
+	make >> ${XISLBIN}/build.log 2>&1 || exit 1
 	echo "Done."
 	echo -n "Installing ISL for CrossGCC..."
 	make install >> ${XISLBIN}/build.log 2>&1 || exit 1
@@ -147,7 +150,7 @@ function binutils () {
 	>> ${BINUTILSBIN}/build.log 2>&1 || exit 1
 	echo "Done"
 	echo -n "Compiling BINUTILS..."
-	make -j${NTHREADS} >> ${BINUTILSBIN}/build.log 2>&1 || exit 1
+	make >> ${BINUTILSBIN}/build.log 2>&1 || exit 1
 	echo "Done."
 	echo -n "Installing BINUTILS..."
 	make install-strip >> ${BINUTILSBIN}/build.log 2>&1 || exit 1
@@ -193,7 +196,7 @@ function cross_gcc () {
 	>> ${XGCCBIN}/build.log 2>&1 || exit 1
 	echo "Done"
 	echo -n "Compiling CrossGCC..."
-	make -j${NTHREADS} >> ${XGCCBIN}/build.log 2>&1 || exit 1
+	make >> ${XGCCBIN}/build.log 2>&1 || exit 1
 	echo "Done."
 	echo -n "Installing CrossGCC..."
 	make install-strip >> ${XGCCBIN}/build.log 2>&1 || exit 1
@@ -227,7 +230,7 @@ function isl () {
 	>> ${ISLBIN}/build.log 2>&1 || exit 1
 	echo "Done"
 	echo -n "Compiling ISL for Final GCC..."
-	make -j${NTHREADS} V=1 >> ${ISLBIN}/build.log 2>&1 || exit 1
+	make >> ${ISLBIN}/build.log 2>&1 || exit 1
 	echo "Done."
 	echo -n "Installing ISL for Final GCC..."
 	make install >> ${ISLBIN}/build.log 2>&1 || exit 1
@@ -278,7 +281,7 @@ function final_gcc () {
 	>> ${GCCBIN}/build.log 2>&1 || exit 1
 	echo "Done"
 	echo -n "Compiling Final GCC..."
-	make -j${NTHREADS} >> ${GCCBIN}/build.log 2>&1 || exit 1
+	make >> ${GCCBIN}/build.log 2>&1 || exit 1
 	echo "Done."
 	echo -n "Installing Final GCC..."
 	make DESTDIR=${GCCBIN} install-strip >> ${GCCBIN}/build.log 2>&1 || exit 1
@@ -375,12 +378,12 @@ case "${1}" in
 		test ! -f "${RECIPEFILE}" && echo "${RECIPEFILE} doesn't exist" && exit 1
 		. $(realpath ${RECIPEFILE})
 		SYSROOT=${TOOLCHAINS}/sysroots/${DISTRO_NAME}/${DISTRO_REL}/${DISTRO_ARCH}
-		NTHREADS=$(echo $(nproc)/2+1 | bc)
 		#SCPDEST="pi@127.0.0.1:"
 		#SCPPORT=5022
 		export PATH="${XGCCBIN}/bin:${PATH}"
 #		cd ${PROGRAM_PATH}
 		[ "$1" == "${RECIPEFILE}" ] && all_steps
+	;;
 esac
 
 while (( "${#} - 1" )); do
