@@ -14,6 +14,8 @@ HOSTARCH=$(cc -dumpmachine)
 NTHREADS=$(echo $(nproc)/2+1 | bc)
 MAKEFLAGS="-j\${NTHREADS} V=1"
 
+SCPPORT=22
+
 # Not used yet
 function program_transform_regex () {
 	### Apply objdump libcc1 configure bug workaround
@@ -205,6 +207,43 @@ function cross_gcc () {
 	echo ""
 	cd ..
 	rm -rf ${XGCCBUILD}
+	cat >${XGCCBIN}.source <<-EOF
+		# To prepare the build environment launch:
+		#
+		# source ${XGCCBIN}.source
+
+		export PATH=${XGCCBIN}/bin:\$PATH
+		export SYSROOT=${SYSROOT}
+	EOF
+}
+
+function test_xgcc () {
+	echo -n "Testing XGCC..."
+	CPUARCH=$(echo ${TARGETARCH} | sed 's/\(+*\)-.*/\1/g')
+	QEMU=0
+	test -f "$(which qemu-${CPUARCH} 2>/dev/null)" && QEMU=1
+	TESTSTRING="$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)"
+	cat > /tmp/${TESTSTRING}.c <<-EOF
+		#include <stdio.h>
+
+		int
+		main (void)
+		{
+		printf ("${TESTSTRING}\n");
+		return 0;
+		}
+	EOF
+	echo -n "Compile test..."
+	${TARGETARCH}-gcc /tmp/${TESTSTRING}.c -o /tmp/${TESTSTRING} || exit 1
+	if [ "${QEMU}" -eq "1" ]
+	then
+		echo -n "Test executable with qemu-${CPUARCH}..."
+		TEST=$(qemu-${CPUARCH} -L ${SYSROOT} /tmp/${TESTSTRING}) || exit 1
+		[ ! "${TEST}" == "${TESTSTRING}" ] && exit 1
+	fi
+	rm -f /tmp/${TESTSTRING}.c /tmp/${TESTSTRING}
+	echo "Done."
+	echo ""
 }
 
 function isl () {
@@ -292,35 +331,6 @@ function final_gcc () {
 	rm -rf ${GCCBUILD}
 }
 
-function test_xgcc () {
-	echo -n "Testing XGCC..."
-	CPUARCH=$(echo ${TARGETARCH} | sed 's/\(+*\)-.*/\1/g')
-	QEMU=0
-	test -f "$(which qemu-${CPUARCH} 2>/dev/null)" && QEMU=1
-	TESTSTRING="$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)"
-	cat > /tmp/${TESTSTRING}.c <<-EOF
-		#include <stdio.h>
-
-		int
-		main (void)
-		{
-		printf ("${TESTSTRING}\n");
-		return 0;
-		}
-	EOF
-	echo -n "Compile test..."
-	${TARGETARCH}-gcc /tmp/${TESTSTRING}.c -o /tmp/${TESTSTRING} || exit 1
-	if [ "${QEMU}" -eq "1" ]
-	then
-		echo -n "Test executable with qemu-${CPUARCH}..."
-		TEST=$(qemu-${CPUARCH} -L ${SYSROOT} /tmp/${TESTSTRING}) || exit 1
-		[ ! "${TEST}" == "${TESTSTRING}" ] && exit 1
-	fi
-	rm -f /tmp/${TESTSTRING}.c /tmp/${TESTSTRING}
-	echo "Done."
-	echo ""
-}
-
 function zip_gcc () {
 	echo -n "Zipping final GCC..."
 	test -f ${GCCTAR} && rm -f ${GCCTAR}
@@ -340,14 +350,12 @@ function finalize () {
 }
 
 function all_steps () {
-	create_sysroot || exit 1
 	prepare_sources || exit 1
 	cross_gcc || exit 1
 	test_xgcc || exit 1
 	final_gcc || exit 1
 	zip_gcc || exit 1
-	send_gcc
-	finalize
+	finalize || exit 1
 	exit 0
 }
 
@@ -358,15 +366,16 @@ case "${1}" in
 		cat <<-EOF
 			Help:
 
-			${PROGRAM_NAME} [parameters] <recipe_file>
+			${PROGRAM_NAME} [parameters] [{-S|--send} [username@]<IP or hostname>:[path] [{-P|--port} <ssh port>]] <recipe_file>
 
 			-a --all
-			-s --create-sysroot:
+			-s --create-sysroot
 			-p --prepare-source
 			-x --cross-gcc
 			-f --final-gcc
 			-z --zip-gcc
-			-S --send-gcc
+			-S --send
+			-P --port
 			-h --help
 		EOF
 		finalize
@@ -378,10 +387,7 @@ case "${1}" in
 		test ! -f "${RECIPEFILE}" && echo "${RECIPEFILE} doesn't exist" && exit 1
 		. $(realpath ${RECIPEFILE})
 		SYSROOT=${TOOLCHAINS}/sysroots/${DISTRO_NAME}/${DISTRO_REL}/${DISTRO_ARCH}
-		#SCPDEST="pi@127.0.0.1:"
-		#SCPPORT=5022
 		export PATH="${XGCCBIN}/bin:${PATH}"
-#		cd ${PROGRAM_PATH}
 		[ "$1" == "${RECIPEFILE}" ] && all_steps
 	;;
 esac
@@ -406,6 +412,14 @@ while (( "${#} - 1" )); do
 			zip_gcc || exit 1
 		;;
 		-S|--send-gcc)
+			shift
+			SCPDEST=${1}
+			shift
+			if [ ${1} == "-P" ] || [ ${1} == "--port" ]
+			then
+				SCPPORT="${2}"
+				shift
+			fi
 			send_gcc
 		;;
 		-a|--all)
