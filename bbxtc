@@ -318,13 +318,13 @@ function final_gcc () {
 	CFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
 	CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
 	host_configargs="gcc_cv_objdump=${TARGETARCH}-objdump" \
-	> ${LOGS}/${GCCSPKG}.log 2>&1 || exit 1
+	> ${LOGS}/${GCCPKG}.log 2>&1 || exit 1
 	echo "Done"
 	echo -n "Compiling Final GCC..."
-	make >> ${LOGS}/${GCCSPKG}.log 2>&1 || exit 1
+	make >> ${LOGS}/${GCCPKG}.log 2>&1 || exit 1
 	echo "Done."
 	echo -n "Installing Final GCC..."
-	make DESTDIR=${GCCBIN} install-strip >> ${LOGS}/${GCCSPKG}.log 2>&1 || exit 1
+	make DESTDIR=${GCCBIN} install-strip >> ${LOGS}/${GCCPKG}.log 2>&1 || exit 1
 	echo "Done."
 	echo "You can find the final GCC binaries for ${TARGETARCH} here: ${GCCBIN}"
 	echo ""
