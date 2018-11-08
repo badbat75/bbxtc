@@ -105,8 +105,8 @@ function cross_isl () {
 	--disable-shared --enable-static --enable-multiarch \
 	CC="ccache ${HOSTARCH}-gcc" \
 	CXX="ccache ${HOSTARCH}-g++" \
-	CFLAGS="-pipe -g -O3" \
-	CXXFLAGS="-pipe -g -O3" \
+	CFLAGS="${COMMON_CFLAGS}" \
+	CXXFLAGS="${COMMON_CFLAGS}" \
 	>> ${XISLBIN}/build.log 2>&1 || exit 1
 	echo "Done"
 	echo -n "Compiling ISL for CrossGCC..."
@@ -143,10 +143,10 @@ function binutils () {
 	CXX_FOR_BUILD="ccache ${HOSTARCH}-g++ -pipe" \
 	CC="ccache ${HOSTARCH}-gcc" \
 	CXX="ccache ${HOSTARCH}-g++" \
-	CFLAGS="-pipe -g -O3" \
-	CXXFLAGS="-pipe -g -O3" \
-	CFLAGS_FOR_TARGET="-pipe -g -O3" \
-	CXXFLAGS_FOR_TARGET="-pipe -g -O3" \
+	CFLAGS="${COMMON_CFLAGS}" \
+	CXXFLAGS="${COMMON_CFLAGS}" \
+	CFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
+	CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
 	>> ${BINUTILSBIN}/build.log 2>&1 || exit 1
 	echo "Done"
 	echo -n "Compiling BINUTILS..."
@@ -189,10 +189,10 @@ function cross_gcc () {
 	CXX_FOR_BUILD="ccache ${HOSTARCH}-g++ -pipe" \
 	CC="ccache ${HOSTARCH}-gcc" \
 	CXX="ccache ${HOSTARCH}-g++" \
-	CFLAGS="-pipe -g -O3" \
-	CXXFLAGS="-pipe -g -O3" \
-	CFLAGS_FOR_TARGET="-pipe -g -O3" \
-	CXXFLAGS_FOR_TARGET="-pipe -g -O3" \
+	CFLAGS="${COMMON_CFLAGS}" \
+	CXXFLAGS="${COMMON_CFLAGS}" \
+	CFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
+	CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
 	>> ${XGCCBIN}/build.log 2>&1 || exit 1
 	echo "Done"
 	echo -n "Compiling CrossGCC..."
@@ -226,7 +226,7 @@ function isl () {
 	\
 	--disable-shared --enable-static --enable-multiarch \
 	CC="ccache ${TARGETARCH}-gcc" \
-	CFLAGS="-pipe -g -O3 --sysroot=${SYSROOT}" \
+	CFLAGS="${COMMON_CFLAGS} --sysroot=${SYSROOT}" \
 	>> ${ISLBIN}/build.log 2>&1 || exit 1
 	echo "Done"
 	echo -n "Compiling ISL for Final GCC..."
@@ -270,13 +270,13 @@ function final_gcc () {
 	CXX_FOR_BUILD="ccache ${HOSTARCH}-g++ -pipe" \
 	CC="ccache ${TARGETARCH}-gcc --sysroot=${SYSROOT} -I${SYSROOT}/usr/include/${TARGETARCH} -B${SYSROOT}/usr/lib/${TARGETARCH}" \
 	CXX="ccache ${TARGETARCH}-g++ --sysroot=${SYSROOT} -I${SYSROOT}/usr/include/${TARGETARCH} -B${SYSROOT}/usr/lib/${TARGETARCH}" \
-	CFLAGS="-pipe -g -O3" \
-	CXXFLAGS="-pipe -g -O3" \
+	CFLAGS="${COMMON_CFLAGS}" \
+	CXXFLAGS="${COMMON_CFLAGS}" \
 	LDFLAGS="-L${SYSROOT}/lib/${TARGETARCH}" \
 	CC_FOR_TARGET="ccache ${TARGETARCH}-gcc" \
 	CXX_FOR_TARGET="ccache ${TARGETARCH}-g++" \
-	CFLAGS_FOR_TARGET="-pipe -g -O3" \
-	CXXFLAGS_FOR_TARGET="-pipe -g -O3" \
+	CFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
+	CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
 	host_configargs="gcc_cv_objdump=${TARGETARCH}-objdump" \
 	>> ${GCCBIN}/build.log 2>&1 || exit 1
 	echo "Done"
