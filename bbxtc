@@ -273,7 +273,7 @@ function isl () {
 	make >> ${LOGS}/${ISLPKG}.log 2>&1 || exit 1
 	echo "Done."
 	echo -n "Installing ISL for Final GCC..."
-	make install >> ${LOGS}/${BINUTILSPKG}.log 2>&1 || exit 1
+	make install >> ${LOGS}/${ISLPKG}.log 2>&1 || exit 1
 	echo "Done."
 	echo ""
 	cd ..
