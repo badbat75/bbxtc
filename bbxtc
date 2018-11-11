@@ -132,12 +132,12 @@ function cross_binutils () {
 		BINUTILSBUILD=$(mktemp -d)
 	fi
 	cd ${BINUTILSBUILD}
-	echo -n "Configuring BINUTILS..."
+	echo -n "Configuring BINUTILS for CrossGCC..."
 	${BINUTILSSRC}/configure -v \
 	--build=${HOSTARCH} --host=${HOSTARCH} --target=${TARGETARCH} \
 	--with-arch-directory=arm --with-arch=armv6 --with-fpu=vfp --with-float=hard \
 	\
-	--prefix=${BINUTILSBIN} --libdir=${BINUTILSBIN}/lib --libexecdir=${XGCCBIN}/lib \
+	--prefix=${XBINUTILSBIN} --libdir=${XBINUTILSBIN}/lib --libexecdir=${XBINUTILSBIN}/lib \
 	\
 	--enable-libquadmath --enable-libquadmath-support --enable-libssp --enable-libstdcxx-debug --enable-libstdcxx-time=yes --enable-lto --enable-multiarch \
 	\
@@ -150,13 +150,13 @@ function cross_binutils () {
 	CXXFLAGS="${COMMON_CFLAGS}" \
 	CFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
 	CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
-	> ${LOGS}/${BINUTILSPKG}.log 2>&1 || exit 1
+	> ${LOGS}/x${BINUTILSPKG}.log 2>&1 || exit 1
 	echo "Done"
-	echo -n "Compiling BINUTILS..."
-	make >> ${LOGS}/${BINUTILSPKG}.log 2>&1 || exit 1
+	echo -n "Compiling BINUTILS for CrossGCC..."
+	make >> ${LOGS}/x${BINUTILSPKG}.log 2>&1 || exit 1
 	echo "Done."
-	echo -n "Installing BINUTILS..."
-	make install-strip >> ${LOGS}/${BINUTILSPKG}.log 2>&1 || exit 1
+	echo -n "Installing BINUTILS for CrossGCC..."
+	make install-strip >> ${LOGS}/x${BINUTILSPKG}.log 2>&1 || exit 1
 	# program_transform_regex || exit 1
 	echo "Done."
 	echo ""
@@ -190,6 +190,15 @@ function cross_gcc () {
 	CXXFLAGS="${COMMON_CFLAGS}" \
 	CFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
 	CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
+	AR_FOR_TARGET="${TARGETARCH}-ar" \
+	AS_FOR_TARGET="${TARGETARCH}-as" \
+	LD_FOR_TARGET="${TARGETARCH}-ld" \
+	NM_FOR_TARGET="${TARGETARCH}-nm" \
+	OBJCOPY_FOR_TARGET="${TARGETARCH}-objcopy" \
+	OBJDUMP_FOR_TARGET="${TARGETARCH}-objdump" \
+	RANLIB_FOR_TARGET="${TARGETARCH}-ranlib" \
+	READELF_FOR_TARGET="${TARGETARCH}-readelf" \
+	STRIP_FOR_TARGET="${TARGETARCH}-strip" \
 	> ${LOGS}/x${GCCPKG}.log 2>&1 || exit 1
 	echo "Done"
 	echo -n "Compiling CrossGCC..."
@@ -276,10 +285,58 @@ function isl () {
 	rm -rf ${ISLBUILD}
 }
 
+function binutils () {
+	if [ "x${BINUTILSBUILD}" != "x" ]
+	then
+		test -d ${BINUTILSBUILD} && rm -rf ${BINUTILSBUILD}
+		mkdir -p ${BINUTILSBUILD}
+	else
+		BINUTILSBUILD=$(mktemp -d)
+	fi
+	cd ${BINUTILSBUILD}
+	echo -n "Configuring BINUTILS..."
+	${BINUTILSSRC}/configure -v \
+	--build=${HOSTARCH} --host=${TARGETARCH} --target=${TARGETARCH} \
+	--with-arch-directory=arm --with-arch=armv6 --with-fpu=vfp --with-float=hard \
+	--with-build-sysroot=${SYSROOT} --program-suffix=-${BINUTILSVER} \
+	\
+	--prefix=${BINUTILSBIN}/usr --libdir=${BINUTILSBIN}/lib/${TARGETARCH}/${BINUTILSVER} --libexecdir=${BINUTILSBIN}/lib \
+	\
+	--enable-libquadmath --enable-libquadmath-support --enable-libssp --enable-libstdcxx-debug --enable-libstdcxx-time=yes --enable-lto --enable-multiarch \
+	\
+	--with-default-libstdcxx-abi=new --with-system-zlib --with-target-system-zlib --with-isl=${ISLBIN} \
+	CC_FOR_BUILD="ccache ${HOSTARCH}-gcc -pipe" \
+	CXX_FOR_BUILD="ccache ${HOSTARCH}-g++ -pipe" \
+	CC="ccache ${TARGETARCH}-gcc" \
+	CXX="ccache ${TARGETARCH}-g++" \
+	CFLAGS="${COMMON_CFLAGS}" \
+	CXXFLAGS="${COMMON_CFLAGS}" \
+	CC_FOR_TARGET="ccache ${TARGETARCH}-gcc" \
+	CXX_FOR_TARGET="ccache ${TARGETARCH}-g++" \
+	CFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
+	CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
+	> ${LOGS}/${BINUTILSPKG}.log 2>&1 || exit 1
+	echo "Done"
+	echo -n "Compiling BINUTILS..."
+	make >> ${LOGS}/${BINUTILSPKG}.log 2>&1 || exit 1
+	echo "Done."
+	echo -n "Installing BINUTILS..."
+	make install-strip >> ${LOGS}/${BINUTILSPKG}.log 2>&1 || exit 1
+	# program_transform_regex || exit 1
+	echo "Done."
+	echo ""
+	cd ..
+	rm -rf ${BINUTILSBUILD}
+}
+
 function gcc () {
 	isl || exit 1
 	test -d ${GCCBIN} && rm -rf ${GCCBIN}
 	mkdir -p ${GCCBIN}
+	if [ "x${BINUTILSBIN}" != "x" ]
+	then
+		binutils || exit 1
+	fi
 	if [ "x${GCCBUILD}" != "x" ]
 	then
 		test -d ${GCCBUILD} && rm -rf ${GCCBUILD}
@@ -293,17 +350,35 @@ function gcc () {
 	--build=${HOSTARCH} --host=${TARGETARCH} --target=${TARGETARCH} \
 	--program-suffix=-${GCCVER} \
 	--prefix=/usr --libdir=/usr/lib/${TARGETARCH}/${GCCVER} --libexecdir=/usr/lib --with-slibdir=/lib/${TARGETARCH}/${GCCVER} \
-	--with-sysroot=/ --with-isl=${ISLBIN} ${GCCCOMMONCONFIG} \
+	--with-sysroot=/ --with-isl=${ISLBIN} ${GCCCOMMONCONFIG} --with-gnu-as=as-2.31.1 --with-gnu-ld=ld-2.31.1\
 	CC_FOR_BUILD="ccache ${HOSTARCH}-gcc" \
 	CXX_FOR_BUILD="ccache ${HOSTARCH}-g++" \
 	CC="ccache ${TARGETARCH}-gcc --sysroot=${SYSROOT}" \
 	CXX="ccache ${TARGETARCH}-g++ --sysroot=${SYSROOT}" \
 	CFLAGS="${COMMON_CFLAGS}" \
 	CXXFLAGS="${COMMON_CFLAGS}" \
+	AR="${TARGETARCH}-ar" \
+	AS="${TARGETARCH}-as" \
+	LD="${TARGETARCH}-ld" \
+	NM="${TARGETARCH}-nm" \
+	OBJCOPY="${TARGETARCH}-objcopy" \
+	OBJDUMP="${TARGETARCH}-objdump" \
+	RANLIB="${TARGETARCH}-ranlib" \
+	READELF="${TARGETARCH}-readelf" \
+	STRIP="${TARGETARCH}-strip" \
 	CC_FOR_TARGET="ccache ${TARGETARCH}-gcc" \
 	CXX_FOR_TARGET="ccache ${TARGETARCH}-g++" \
 	CFLAGS_FOR_TARGET="${COMMON_CFLAGS} --sysroot=${SYSROOT}" \
 	CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS} --sysroot=${SYSROOT}" \
+	AR_FOR_TARGET="${TARGETARCH}-ar" \
+	AS_FOR_TARGET="${TARGETARCH}-as" \
+	LD_FOR_TARGET="${TARGETARCH}-ld" \
+	NM_FOR_TARGET="${TARGETARCH}-nm" \
+	OBJCOPY_FOR_TARGET="${TARGETARCH}-objcopy" \
+	OBJDUMP_FOR_TARGET="${TARGETARCH}-objdump" \
+	RANLIB_FOR_TARGET="${TARGETARCH}-ranlib" \
+	READELF_FOR_TARGET="${TARGETARCH}-readelf" \
+	STRIP_FOR_TARGET="${TARGETARCH}-strip" \
 	host_configargs="gcc_cv_objdump=${TARGETARCH}-objdump" \
 	> ${LOGS}/${GCCPKG}.log 2>&1 || exit 1
 	echo "Done"
@@ -397,6 +472,9 @@ while (( "${#} - 1" )); do
 			gcc || exit 1
 			zip_gcc || exit 1
 		;;
+		-z|--zip-gcc)
+			zip_gcc || exit 1
+		;;
 		-S|--send-gcc)
 			shift
 			SCPDEST=${1}
@@ -407,9 +485,13 @@ while (( "${#} - 1" )); do
 				shift
 			fi
 			send_gcc
+			break
 		;;
 		-a|--all)
 			all_steps
+		;;
+		-b|--binutils)
+			binutils || exit 1
 		;;
 		*)
 			echo "Unrecognized parameter $1"

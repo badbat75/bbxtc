@@ -16,7 +16,7 @@ test -z "${DISTRO_ARCH:-}" && echo "No DISTRO_ARCH defined" && exit 1
 
 SRCFILE=${0}.src
 
-test !-z ${SYSROOT} && SYSROOT=${TOOLCHAINS}/sysroots/${DISTRO_NAME}/${DISTRO_REL}/${DISTRO_ARCH}
+test ! -z ${SYSROOT} && SYSROOT=${TOOLCHAINS}/sysroots/${DISTRO_NAME}/${DISTRO_REL}/${DISTRO_ARCH}
 PKGPATH=${SYSROOT}/var/cache/packages
 LOGPATH=${SYSROOT}/var/log
 
