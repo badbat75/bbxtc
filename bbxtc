@@ -21,7 +21,7 @@ SCPPORT=22
 function program_transform_regex () {
 	### Apply objdump libcc1 configure bug workaround
 	echo "Applying objdump configuration workaround for final GCC..."
-	cd ${XGCCBIN}/bin
+	cd ${PKG_XBIN}/bin
 	for file in $(ls)
 	do
 		ln -s ${file} $(echo ${file} | sed 's/arm-/arm-unknown-/g')
@@ -88,9 +88,32 @@ function prepare_sources () {
 	fi
 }
 
+function create_base_sources () {
+	BASESRC="$(mktemp -d)"
+	test -d "${BASESRC}" && rm -rf ${BASESRC}
+	mkdir ${BASESRC}
+	while (( "${#}" )); do
+		case ${1} in
+			--with-isl)
+					echo -n "Including ISL in GCC sources..."
+					ln -fs ${ISLSRC} ${BASESRC}/isl
+					echo "Done."
+			;;
+			--with-binutils)
+					echo -n "Including BINUTILS in GCC sources..."
+					find ${BINUTILSSRC} -type d -exec ln -fs {} ${BASESRC} \;
+					#ln -fs ${BINUTILSSRC}/* ${BASESRC}
+					echo "Done."
+			;;
+		esac
+		shift
+	done
+	ln -fs ${GCCSRC}/* ${BASESRC}
+}
+
 function cross_isl () {
-	test -d ${XISLBIN} && rm -rf ${XISLBIN}
-	mkdir -p ${XISLBIN}
+	test -d ${ISL_XBIN} && rm -rf ${ISL_XBIN}
+	mkdir -p ${ISL_XBIN}
 	if [ "x${XISLBUILD}" != "x" ]
 	then
 		test -d ${XISLBUILD} && rm -rf ${XISLBUILD}
@@ -103,9 +126,9 @@ function cross_isl () {
 	${ISLSRC}/configure -v \
 	--build=${HOSTARCH} --host=${HOSTARCH} \
 	\
-	--prefix=${XISLBIN} --libdir=${XISLBIN}/lib --libexecdir=${XISLBIN}/lib \
+	--prefix=${ISL_XBIN} --libdir=${ISL_XBIN}/lib --libexecdir=${ISL_XBIN}/lib \
 	\
-	--disable-shared --enable-static --enable-multiarch \
+	--disable-shared --enable-static \
 	CC="ccache ${HOSTARCH}-gcc" \
 	CXX="ccache ${HOSTARCH}-g++" \
 	CFLAGS="${COMMON_CFLAGS}" \
@@ -135,21 +158,16 @@ function cross_binutils () {
 	echo -n "Configuring BINUTILS for CrossGCC..."
 	${BINUTILSSRC}/configure -v \
 	--build=${HOSTARCH} --host=${HOSTARCH} --target=${TARGETARCH} \
-	--with-arch-directory=arm --with-arch=armv6 --with-fpu=vfp --with-float=hard \
 	\
-	--prefix=${XBINUTILSBIN} --libdir=${XBINUTILSBIN}/lib --libexecdir=${XBINUTILSBIN}/lib \
+	--prefix=${PKG_XBIN} --libdir=${PKG_XBIN}/lib --libexecdir=${PKG_XBIN}/lib \
 	\
-	--enable-libquadmath --enable-libquadmath-support --enable-libssp --enable-libstdcxx-debug --enable-libstdcxx-time=yes --enable-lto --enable-multiarch \
+	--enable-gold \
 	\
-	--with-default-libstdcxx-abi=new --with-system-zlib --with-target-system-zlib --with-isl=${XISLBIN} \
-	CC_FOR_BUILD="ccache ${HOSTARCH}-gcc -pipe" \
-	CXX_FOR_BUILD="ccache ${HOSTARCH}-g++ -pipe" \
+	--with-system-zlib --with-isl=${ISL_XBIN} \
 	CC="ccache ${HOSTARCH}-gcc" \
 	CXX="ccache ${HOSTARCH}-g++" \
 	CFLAGS="${COMMON_CFLAGS}" \
 	CXXFLAGS="${COMMON_CFLAGS}" \
-	CFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
-	CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
 	> ${LOGS}/x${BINUTILSPKG}.log 2>&1 || exit 1
 	echo "Done"
 	echo -n "Compiling BINUTILS for CrossGCC..."
@@ -164,11 +182,53 @@ function cross_binutils () {
 	rm -rf ${BINUTILSBUILD}
 }
 
+function host_gcc () {
+	create_base_sources --with-isl
+	if [ "x${XGCCBUILD}" != "x" ]
+	then
+		test -d ${XGCCBUILD} && rm -rf ${XGCCBUILD}
+		mkdir -p ${XGCCBUILD}
+	else
+		XGCCBUILD=$(mktemp -d)
+	fi
+	cd ${XGCCBUILD}
+	echo -n "Configuring HostGCC..."
+	#--with-isl=${ISL_XBIN}
+	#--build=${HOSTARCH} --host=${HOSTARCH} --target=${HOSTARCH} \
+	${BASESRC}/configure -v \
+	--prefix=${PKG_XBIN} --libdir=${PKG_XBIN}/lib --libexecdir=${PKG_XBIN}/lib \
+	${GCCCOMMONCONFIG} --enable-gold --disable-multilib \
+	CC_FOR_BUILD="ccache ${HOSTARCH}-gcc -O3 -pipe" \
+	CXX_FOR_BUILD="ccache ${HOSTARCH}-g++ -O3 -pipe" \
+	CC="ccache ${HOSTARCH}-gcc" \
+	CXX="ccache ${HOSTARCH}-g++" \
+	CFLAGS="${COMMON_CFLAGS}" \
+	CXXFLAGS="${COMMON_CFLAGS}" \
+	CFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
+	CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
+	> ${LOGS}/host-${GCCPKG}.log 2>&1 || exit 1
+	echo "Done"
+	echo -n "Compiling HostGCC..."
+	make >> ${LOGS}/host-${GCCPKG}.log 2>&1 || exit 1
+	echo "Done."
+	echo -n "Installing HostGCC..."
+	make install-strip >> ${LOGS}/host-${GCCPKG}.log 2>&1 || exit 1
+	echo "Done."
+	echo "You can find the final HostGCC binaries for ${TARGETARCH} here:"
+	echo "${PKG_XBIN}"
+	echo ""
+	cd ..
+	rm -rf ${XGCCBUILD}
+	rm -rf ${BASESRC}
+}
+
 function cross_gcc () {
 	cross_isl || exit 1
-	test -d ${XGCCBIN} && rm -rf ${XGCCBIN}
-	mkdir -p ${XGCCBIN}
+	test -d ${PKG_XBIN} && rm -rf ${PKG_XBIN}
+	mkdir -p ${PKG_XBIN}
+	#host_gcc || exit 1
 	cross_binutils || exit 1
+	create_base_sources
 	if [ "x${XGCCBUILD}" != "x" ]
 	then
 		test -d ${XGCCBUILD} && rm -rf ${XGCCBUILD}
@@ -178,27 +238,20 @@ function cross_gcc () {
 	fi
 	cd ${XGCCBUILD}
 	echo -n "Configuring CrossGCC..."
-	${GCCSRC}/configure -v \
+	#--with-isl=${ISL_XBIN}
+	${BASESRC}/configure -v \
 	--build=${HOSTARCH} --host=${HOSTARCH} --target=${TARGETARCH} \
-	--prefix=${XGCCBIN} --libdir=${XGCCBIN}/lib --libexecdir=${XGCCBIN}/lib \
-	--with-sysroot=${SYSROOT} --with-isl=${XISLBIN} ${GCCCOMMONCONFIG} \
-	CC_FOR_BUILD="ccache ${HOSTARCH}-gcc -pipe" \
-	CXX_FOR_BUILD="ccache ${HOSTARCH}-g++ -pipe" \
+	${GCCTARGETCONFIG} \
+	--prefix=${PKG_XBIN} --libdir=${PKG_XBIN}/lib --libexecdir=${PKG_XBIN}/lib --with-sysroot=${SYSROOT} \
+	${GCCCOMMONCONFIG} --enable-gold \
+	CC_FOR_BUILD="ccache ${HOSTARCH}-gcc -O3 -pipe" \
+	CXX_FOR_BUILD="ccache ${HOSTARCH}-g++ -O3 -pipe" \
 	CC="ccache ${HOSTARCH}-gcc" \
 	CXX="ccache ${HOSTARCH}-g++" \
 	CFLAGS="${COMMON_CFLAGS}" \
 	CXXFLAGS="${COMMON_CFLAGS}" \
 	CFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
 	CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
-	AR_FOR_TARGET="${TARGETARCH}-ar" \
-	AS_FOR_TARGET="${TARGETARCH}-as" \
-	LD_FOR_TARGET="${TARGETARCH}-ld" \
-	NM_FOR_TARGET="${TARGETARCH}-nm" \
-	OBJCOPY_FOR_TARGET="${TARGETARCH}-objcopy" \
-	OBJDUMP_FOR_TARGET="${TARGETARCH}-objdump" \
-	RANLIB_FOR_TARGET="${TARGETARCH}-ranlib" \
-	READELF_FOR_TARGET="${TARGETARCH}-readelf" \
-	STRIP_FOR_TARGET="${TARGETARCH}-strip" \
 	> ${LOGS}/x${GCCPKG}.log 2>&1 || exit 1
 	echo "Done"
 	echo -n "Compiling CrossGCC..."
@@ -208,17 +261,18 @@ function cross_gcc () {
 	make install-strip >> ${LOGS}/x${GCCPKG}.log 2>&1 || exit 1
 	echo "Done."
 	echo "You can find the final CrossGCC binaries for ${TARGETARCH} here:"
-	echo "${XGCCBIN}"
+	echo "${PKG_XBIN}"
 	echo ""
 	cd ..
 	rm -rf ${XGCCBUILD}
+	rm -rf ${BASESRC}
 	test_cross_gcc || exit 1
-	cat >${XGCCBIN}.source <<-EOF
+	cat >${PKG_XBIN}.source <<-EOF
 		# To prepare the build environment launch:
 		#
-		# source ${XGCCBIN}.source
+		# source ${PKG_XBIN}.source
 
-		export PATH=${XGCCBIN}/bin:\${PATH}
+		export PATH=${PKG_XBIN}/bin:\${PATH}
 		export SYSROOT=${SYSROOT}
 	EOF
 }
@@ -253,8 +307,8 @@ function test_cross_gcc () {
 }
 
 function isl () {
-	test -d ${ISLBIN} && rm -rf ${ISLBIN}
-	mkdir -p ${ISLBIN}
+	test -d ${ISL_BIN} && rm -rf ${ISL_BIN}
+	mkdir -p ${ISL_BIN}
 	if [ "x${ISLBUILD}" != "x" ]
 	then
 		test -d ${ISLBUILD} && rm -rf ${ISLBUILD}
@@ -267,9 +321,9 @@ function isl () {
 	${ISLSRC}/configure -v \
 	--build=${HOSTARCH} --host=${TARGETARCH} \
 	\
-	--prefix=${ISLBIN} --libdir=${ISLBIN}/lib --libexecdir=${ISLBIN}/lib \
+	--prefix=${ISL_BIN} --libdir=${ISL_BIN}/lib --libexecdir=${ISL_BIN}/lib \
 	\
-	--disable-shared --enable-static --enable-multiarch \
+	--disable-shared --enable-static \
 	CC="ccache ${TARGETARCH}-gcc" \
 	CFLAGS="${COMMON_CFLAGS} --sysroot=${SYSROOT}" \
 	> ${LOGS}/${ISLPKG}.log 2>&1 || exit 1
@@ -297,31 +351,23 @@ function binutils () {
 	echo -n "Configuring BINUTILS..."
 	${BINUTILSSRC}/configure -v \
 	--build=${HOSTARCH} --host=${TARGETARCH} --target=${TARGETARCH} \
-	--with-arch-directory=arm --with-arch=armv6 --with-fpu=vfp --with-float=hard \
 	--with-build-sysroot=${SYSROOT} --program-suffix=-${BINUTILSVER} \
 	\
-	--prefix=${BINUTILSBIN}/usr --libdir=${BINUTILSBIN}/lib/${TARGETARCH}/${BINUTILSVER} --libexecdir=${BINUTILSBIN}/lib \
+	--prefix=${PKG_BIN}/usr --libdir=${PKG_BIN}/lib/${TARGETARCH}/${BINUTILSVER} --libexecdir=${PKG_BIN}/lib \
 	\
-	--enable-libquadmath --enable-libquadmath-support --enable-libssp --enable-libstdcxx-debug --enable-libstdcxx-time=yes --enable-lto --enable-multiarch \
-	\
-	--with-default-libstdcxx-abi=new --with-system-zlib --with-target-system-zlib --with-isl=${ISLBIN} \
-	CC_FOR_BUILD="ccache ${HOSTARCH}-gcc -pipe" \
-	CXX_FOR_BUILD="ccache ${HOSTARCH}-g++ -pipe" \
+	--with-system-zlib --with-isl=${ISL_BIN} \
 	CC="ccache ${TARGETARCH}-gcc" \
 	CXX="ccache ${TARGETARCH}-g++" \
 	CFLAGS="${COMMON_CFLAGS}" \
 	CXXFLAGS="${COMMON_CFLAGS}" \
-	CC_FOR_TARGET="ccache ${TARGETARCH}-gcc" \
-	CXX_FOR_TARGET="ccache ${TARGETARCH}-g++" \
-	CFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
-	CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
 	> ${LOGS}/${BINUTILSPKG}.log 2>&1 || exit 1
 	echo "Done"
 	echo -n "Compiling BINUTILS..."
-	make >> ${LOGS}/${BINUTILSPKG}.log 2>&1 || exit 1
+	#tooldir=${PKG_BIN}/usr
+	make tooldir=${PKG_BIN}/usr >> ${LOGS}/${BINUTILSPKG}.log 2>&1 || exit 1
 	echo "Done."
 	echo -n "Installing BINUTILS..."
-	make install-strip >> ${LOGS}/${BINUTILSPKG}.log 2>&1 || exit 1
+	make tooldir=${PKG_BIN}/usr install-strip >> ${LOGS}/${BINUTILSPKG}.log 2>&1 || exit 1
 	# program_transform_regex || exit 1
 	echo "Done."
 	echo ""
@@ -330,12 +376,15 @@ function binutils () {
 }
 
 function gcc () {
-	isl || exit 1
-	test -d ${GCCBIN} && rm -rf ${GCCBIN}
-	mkdir -p ${GCCBIN}
-	if [ "x${BINUTILSBIN}" != "x" ]
+	#isl || exit 1
+	test -d ${PKG_BIN} && rm -rf ${PKG_BIN}
+	mkdir -p ${PKG_BIN}
+	if [ "${WITH_NATIVE_BINUTILS}" = "1" ]
 	then
-		binutils || exit 1
+		create_base_sources --with-isl --with-binutils
+		#binutils || exit 1
+	else
+		create_base_sources
 	fi
 	if [ "x${GCCBUILD}" != "x" ]
 	then
@@ -346,39 +395,23 @@ function gcc () {
 	fi
 	cd ${GCCBUILD}
 	echo -n "Configuring Final GCC..."
-	${GCCSRC}/configure -v \
+	#--with-isl=${ISL_BIN}
+	${BASESRC}/configure -v \
 	--build=${HOSTARCH} --host=${TARGETARCH} --target=${TARGETARCH} \
+	${GCCTARGETCONFIG} --disable-bootstrap \
 	--program-suffix=-${GCCVER} \
-	--prefix=/usr --libdir=/usr/lib/${TARGETARCH}/${GCCVER} --libexecdir=/usr/lib --with-slibdir=/lib/${TARGETARCH}/${GCCVER} \
-	--with-sysroot=/ --with-isl=${ISLBIN} ${GCCCOMMONCONFIG} --with-gnu-as=as-2.31.1 --with-gnu-ld=ld-2.31.1\
+	--prefix=/usr --libdir=/usr/lib/${TARGETARCH}/${GCCVER} --libexecdir=/usr/lib --with-slibdir=/lib/${TARGETARCH}/${GCCVER} --with-sysroot=/ \
+	${GCCCOMMONCONFIG} --enable-gold --disable-bootstrap\
 	CC_FOR_BUILD="ccache ${HOSTARCH}-gcc" \
 	CXX_FOR_BUILD="ccache ${HOSTARCH}-g++" \
 	CC="ccache ${TARGETARCH}-gcc --sysroot=${SYSROOT}" \
 	CXX="ccache ${TARGETARCH}-g++ --sysroot=${SYSROOT}" \
 	CFLAGS="${COMMON_CFLAGS}" \
 	CXXFLAGS="${COMMON_CFLAGS}" \
-	AR="${TARGETARCH}-ar" \
-	AS="${TARGETARCH}-as" \
-	LD="${TARGETARCH}-ld" \
-	NM="${TARGETARCH}-nm" \
-	OBJCOPY="${TARGETARCH}-objcopy" \
-	OBJDUMP="${TARGETARCH}-objdump" \
-	RANLIB="${TARGETARCH}-ranlib" \
-	READELF="${TARGETARCH}-readelf" \
-	STRIP="${TARGETARCH}-strip" \
 	CC_FOR_TARGET="ccache ${TARGETARCH}-gcc" \
 	CXX_FOR_TARGET="ccache ${TARGETARCH}-g++" \
 	CFLAGS_FOR_TARGET="${COMMON_CFLAGS} --sysroot=${SYSROOT}" \
 	CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS} --sysroot=${SYSROOT}" \
-	AR_FOR_TARGET="${TARGETARCH}-ar" \
-	AS_FOR_TARGET="${TARGETARCH}-as" \
-	LD_FOR_TARGET="${TARGETARCH}-ld" \
-	NM_FOR_TARGET="${TARGETARCH}-nm" \
-	OBJCOPY_FOR_TARGET="${TARGETARCH}-objcopy" \
-	OBJDUMP_FOR_TARGET="${TARGETARCH}-objdump" \
-	RANLIB_FOR_TARGET="${TARGETARCH}-ranlib" \
-	READELF_FOR_TARGET="${TARGETARCH}-readelf" \
-	STRIP_FOR_TARGET="${TARGETARCH}-strip" \
 	host_configargs="gcc_cv_objdump=${TARGETARCH}-objdump" \
 	> ${LOGS}/${GCCPKG}.log 2>&1 || exit 1
 	echo "Done"
@@ -386,28 +419,29 @@ function gcc () {
 	make >> ${LOGS}/${GCCPKG}.log 2>&1 || exit 1
 	echo "Done."
 	echo -n "Installing Final GCC..."
-	make DESTDIR=${GCCBIN} install-strip >> ${LOGS}/${GCCPKG}.log 2>&1 || exit 1
+	make DESTDIR=${PKG_BIN} install-strip >> ${LOGS}/${GCCPKG}.log 2>&1 || exit 1
 	echo "Done."
 	echo "You can find the final GCC binaries for ${TARGETARCH} here:"
-	echo "${GCCBIN}"
+	echo "${PKG_BIN}"
 	echo ""
 	cd ..
+	rm -rf ${BASESRC}
 	rm -rf ${GCCBUILD}
 }
 
 function zip_gcc () {
 	echo -n "Zipping final GCC..."
-	test -f ${GCCTAR} && rm -f ${GCCTAR}
-	cd ${GCCBIN}
-	tar cf - . | xz -z -T0 - >> ${GCCTAR}
+	test -f ${PKG_TAR} && rm -f ${PKG_TAR}
+	cd ${PKG_BIN}
+	tar cf - . | xz -z -T0 - >> ${PKG_TAR}
 	echo "Done."
 	echo "You can find the final GCC package here:"
-	echo "${GCCTAR}"
+	echo "${PKG_TAR}"
 	echo ""
 }
 
 function send_gcc () {
-	test ! -z "${SCPDEST:-}" && test -f ${GCCTAR} && scp ${SCPPORT:+-P${SCPPORT}} ${GCCTAR} ${SCPDEST}
+	test ! -z "${SCPDEST:-}" && test -f ${PKG_TAR} && scp ${SCPPORT:+-P${SCPPORT}} ${PKG_TAR} ${SCPDEST}
 }
 
 function finalize () {
@@ -450,14 +484,19 @@ case "${1}" in
 		echo "Recipe name: ${RECIPEFILE}"
 		test ! -f "${RECIPEFILE}" && echo "${RECIPEFILE} doesn't exist" && exit 1
 		. $(realpath ${RECIPEFILE})
-		SYSROOT=${TOOLCHAINS}/sysroots/${DISTRO_NAME}/${DISTRO_REL}/${DISTRO_ARCH}
-		export PATH="${XGCCBIN}/bin:${PATH}"
+		ISL_XBIN=${LIBRARIES}/${HOSTARCH}/${ISLPKG}
+		ISL_BIN=${LIBRARIES}/${TARGETARCH}/${ISLPKG}
+		PKG_XBIN=${XCOMPILERS}/${PKG_NAME}
+		PKG_BIN=${NATIVES}/${PKG_NAME}
+		PKG_TAR=${NATIVES}/${PKG_NAME}.tar.xz
+		export SYSROOT=${TOOLCHAINS}/sysroots/${DISTRO_NAME}/${DISTRO_REL}/${DISTRO_ARCH}
+		export PATH="${PKG_XBIN}/bin:${PATH}"
 		[ "$1" == "${RECIPEFILE}" ] && all_steps
 	;;
 esac
 
 while (( "${#} - 1" )); do
-	echo "Evaluate ${1}"
+	#echo "Evaluate ${1}"
 	case ${1} in
 		-s|--create-sysroot)
 			create_sysroot || exit 1
