@@ -269,8 +269,7 @@ function cross_gcc () {
 	--build=${HOSTARCH} --host=${HOSTARCH} --target=${TARGETARCH} \
 	${GCCTARGETCONFIG} \
 	--prefix=${PKG_XBIN} --libdir=${PKG_XBIN}/lib --libexecdir=${PKG_XBIN}/lib --with-sysroot=${SYSROOT} \
-	${GCCCOMMONCONFIG} \
-	--with-gas \
+	${BINUTILSCOMMONCONFIG} ${GCCCOMMONCONFIG} \
 	CC_FOR_BUILD="ccache ${HOSTARCH}-gcc -O3 -pipe" \
 	CXX_FOR_BUILD="ccache ${HOSTARCH}-g++ -O3 -pipe" \
 	CC="ccache ${HOSTARCH}-gcc" \
@@ -282,8 +281,8 @@ function cross_gcc () {
 	> ${LOGS}/x${GCCPKG}.log 2>&1 || exit 1
 	echo "Done"
 	echo -n "Compiling CrossGCC..."
-	echo -n "Build all-gas workaround..."
-	make all-gas >> ${LOGS}/x${GCCPKG}.log 2>&1 || exit 1
+	#echo -n "Build all-gas workaround..."
+	#make all-gas >> ${LOGS}/x${GCCPKG}.log 2>&1 || exit 1
 	make >> ${LOGS}/x${GCCPKG}.log 2>&1 || exit 1
 	echo "Done."
 	echo -n "Installing CrossGCC..."
@@ -397,10 +396,9 @@ function gcc () {
 	#--with-isl=${ISL_BIN}
 	${BASESRC}/configure -v \
 	--build=${HOSTARCH} --host=${TARGETARCH} --target=${TARGETARCH} \
-	${GCCTARGETCONFIG} --disable-bootstrap \
 	--program-suffix=-${GCCVER} \
 	--prefix=/usr --libdir=/usr/lib/${TARGETARCH}/${GCCVER} --libexecdir=/usr/lib --with-slibdir=/lib/${TARGETARCH}/${GCCVER} --with-sysroot=/ \
-	${GCCCOMMONCONFIG} --enable-gold --disable-bootstrap \
+	${GCCTARGETCONFIG} ${GCCCOMMONCONFIG} ${BINUTILSCOMMONCONFIG} \
 	CC_FOR_BUILD="ccache ${HOSTARCH}-gcc" \
 	CXX_FOR_BUILD="ccache ${HOSTARCH}-g++" \
 	CC="ccache ${TARGETARCH}-gcc --sysroot=${SYSROOT}" \
