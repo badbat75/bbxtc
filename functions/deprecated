@@ -1,0 +1,150 @@
+#!/bin/bash
+
+	function program_transform_regex () {
+		### Apply objdump libcc1 configure bug workaround
+		echo "Applying objdump configuration workaround for final GCC..."
+		cd ${PKG_XBIN}/bin
+		for file in $(ls)
+		do
+			ln -s ${file} $(echo ${file} | sed 's/arm-/arm-unknown-/g')
+		done
+		cd -
+	}
+
+	function cross_isl () {
+		test -d ${ISL_XBIN} && rm -rf ${ISL_XBIN}
+		mkdir -p ${ISL_XBIN}
+		if [ "x${XISLBUILD}" != "x" ]
+		then
+			test -d ${XISLBUILD} && rm -rf ${XISLBUILD}
+			mkdir -p ${XISLBUILD}
+		else
+			XISLBUILD=$(mktemp -d)
+		fi
+		cd ${XISLBUILD}
+		echo -n "Configuring ISL for CrossGCC..."
+		${ISLSRC}/configure -v \
+		--build=${HOSTARCH} --host=${HOSTARCH} \
+		\
+		--prefix=${ISL_XBIN} --libdir=${ISL_XBIN}/lib --libexecdir=${ISL_XBIN}/lib \
+		\
+		--disable-shared --enable-static \
+		CC="ccache ${HOSTARCH}-gcc" \
+		CXX="ccache ${HOSTARCH}-g++" \
+		CFLAGS="${COMMON_CFLAGS}" \
+		CXXFLAGS="${COMMON_CFLAGS}" \
+		> ${LOGS}/x${ISLPKG}.log 2>&1 || exit 1
+		echo "Done"
+		echo -n "Compiling ISL for CrossGCC..."
+		make >> ${LOGS}/x${ISLPKG}.log 2>&1 || exit 1
+		echo "Done."
+		echo -n "Installing ISL for CrossGCC..."
+		make install >> ${LOGS}/x${ISLPKG}.log 2>&1 || exit 1
+		echo "Done."
+		echo ""
+		cd ..
+		rm -rf ${XISLBUILD}
+	}
+
+	function cross_binutils () {
+		if [ "x${BINUTILSBUILD}" != "x" ]
+		then
+			test -d ${BINUTILSBUILD} && rm -rf ${BINUTILSBUILD}
+			mkdir -p ${BINUTILSBUILD}
+		else
+			BINUTILSBUILD=$(mktemp -d)
+		fi
+		cd ${BINUTILSBUILD}
+		echo -n "Configuring BINUTILS for CrossGCC..."
+		${BINUTILSSRC}/configure -v \
+		--build=${HOSTARCH} --host=${HOSTARCH} --target=${TARGETARCH} \
+		--prefix=${PKG_XBIN} --libdir=${PKG_XBIN}/lib --libexecdir=${PKG_XBIN}/lib \
+		--with-isl=${ISL_XBIN} \
+		${BINUTILSCOMMONCONFIG} \
+		CC="ccache ${HOSTARCH}-gcc" \
+		CXX="ccache ${HOSTARCH}-g++" \
+		CFLAGS="${COMMON_CFLAGS}" \
+		CXXFLAGS="${COMMON_CFLAGS}" \
+		> ${LOGS}/x${BINUTILSPKG}.log 2>&1 || exit 1
+		echo "Done"
+		echo -n "Compiling BINUTILS for CrossGCC..."
+		make >> ${LOGS}/x${BINUTILSPKG}.log 2>&1 || exit 1
+		echo "Done."
+		echo -n "Installing BINUTILS for CrossGCC..."
+		make install-strip >> ${LOGS}/x${BINUTILSPKG}.log 2>&1 || exit 1
+		# program_transform_regex || exit 1
+		echo "Done."
+		echo ""
+		cd ..
+		rm -rf ${BINUTILSBUILD}
+	}
+
+
+	function isl () {
+		test -d ${ISL_BIN} && rm -rf ${ISL_BIN}
+		mkdir -p ${ISL_BIN}
+		if [ "x${ISLBUILD}" != "x" ]
+		then
+			test -d ${ISLBUILD} && rm -rf ${ISLBUILD}
+			mkdir -p ${ISLBUILD}
+		else
+			ISLBUILD=$(mktemp -d)
+		fi
+		cd ${ISLBUILD}
+		echo -n "Configuring ISL for Final GCC..."
+		${ISLSRC}/configure -v \
+		--build=${HOSTARCH} --host=${TARGETARCH} \
+		\
+		--prefix=${ISL_BIN} --libdir=${ISL_BIN}/lib --libexecdir=${ISL_BIN}/lib \
+		\
+		--disable-shared --enable-static \
+		CC="ccache ${TARGETARCH}-gcc" \
+		CFLAGS="${COMMON_CFLAGS} --sysroot=${SYSROOT}" \
+		> ${LOGS}/${ISLPKG}.log 2>&1 || exit 1
+		echo "Done"
+		echo -n "Compiling ISL for Final GCC..."
+		make >> ${LOGS}/${ISLPKG}.log 2>&1 || exit 1
+		echo "Done."
+		echo -n "Installing ISL for Final GCC..."
+		make install >> ${LOGS}/${ISLPKG}.log 2>&1 || exit 1
+		echo "Done."
+		echo ""
+		cd ..
+		rm -rf ${ISLBUILD}
+	}
+
+	function binutils () {
+		if [ "x${BINUTILSBUILD}" != "x" ]
+		then
+			test -d ${BINUTILSBUILD} && rm -rf ${BINUTILSBUILD}
+			mkdir -p ${BINUTILSBUILD}
+		else
+			BINUTILSBUILD=$(mktemp -d)
+		fi
+		cd ${BINUTILSBUILD}
+		echo -n "Configuring BINUTILS..."
+		${BINUTILSSRC}/configure -v \
+		--build=${HOSTARCH} --host=${TARGETARCH} --target=${TARGETARCH} \
+		--with-build-sysroot=${SYSROOT} --program-suffix=-${BINUTILSVER} \
+		--prefix=${PKG_BIN}/usr --libdir=${PKG_BIN}/lib/${TARGETARCH}/${BINUTILSVER} --libexecdir=${PKG_BIN}/lib \
+		--with-isl=${ISL_BIN} \
+		${BINUTILSCOMMONCONFIG} \
+		CC="ccache ${TARGETARCH}-gcc" \
+		CXX="ccache ${TARGETARCH}-g++" \
+		CFLAGS="${COMMON_CFLAGS}" \
+		CXXFLAGS="${COMMON_CFLAGS}" \
+		> ${LOGS}/${BINUTILSPKG}.log 2>&1 || exit 1
+		echo "Done"
+		echo -n "Compiling BINUTILS..."
+		#tooldir=${PKG_BIN}/usr
+		make tooldir=${PKG_BIN}/usr >> ${LOGS}/${BINUTILSPKG}.log 2>&1 || exit 1
+		echo "Done."
+		echo -n "Installing BINUTILS..."
+		make tooldir=${PKG_BIN}/usr install-strip >> ${LOGS}/${BINUTILSPKG}.log 2>&1 || exit 1
+		# program_transform_regex || exit 1
+		echo "Done."
+		echo ""
+		cd ..
+		rm -rf ${BINUTILSBUILD}
+	}
+
