@@ -282,8 +282,8 @@ function cross_gcc () {
 	> ${LOGS}/x${GCCPKG}.log 2>&1 || exit 1
 	echo "Done"
 	echo -n "Compiling CrossGCC..."
-	echo -n "Build stage1-binutils workaround..."
-	make all-stage1-binutils >> ${LOGS}/x${GCCPKG}.log 2>&1 || exit 1
+	echo -n "Build all-gas workaround..."
+	make all-gas >> ${LOGS}/x${GCCPKG}.log 2>&1 || exit 1
 	make >> ${LOGS}/x${GCCPKG}.log 2>&1 || exit 1
 	echo "Done."
 	echo -n "Installing CrossGCC..."
