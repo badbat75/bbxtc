@@ -111,7 +111,6 @@ function host_gcc () {
 	fi
 	cd ${XGCCBUILD}
 	echo -n "Configuring HostGCC..."
-	#--with-isl=${ISL_XBIN}
 	${BASESRC}/configure -v \
 	--build=${HOSTARCH} --host=${HOSTARCH} --target=${HOSTARCH} \
 	--prefix=${PKG_HBIN} --libdir=${PKG_HBIN}/lib --libexecdir=${PKG_HBIN}/lib \
@@ -168,10 +167,8 @@ function host_gcc () {
 	}
 
 function cross_gcc () {
-	#cross_isl || exit 1
 	test -d ${PKG_XBIN} && rm -rf ${PKG_XBIN}
 	mkdir -p ${PKG_XBIN}
-	#cross_binutils || exit 1
 	create_base_sources --with-isl --with-binutils
 	if [ "x${XGCCBUILD}" != "x" ]
 	then
@@ -182,13 +179,12 @@ function cross_gcc () {
 	fi
 	cd ${XGCCBUILD}
 	echo -n "Configuring CrossGCC..."
-	#--with-isl=${ISL_XBIN}
 	${BASESRC}/configure -v \
 	--build=${HOSTARCH} --host=${HOSTARCH} --target=${TARGETARCH} \
 	--prefix=${PKG_XBIN} --libdir=${PKG_XBIN}/lib --libexecdir=${PKG_XBIN}/lib --with-sysroot=${SYSROOT} \
 	${BINUTILSCOMMONCONFIG} ${GCCCOMMONCONFIG} ${GCCTARGETCONFIG} \
-	CFLAGS="${COMMON_CFLAGS}" \
-	CXXFLAGS="${COMMON_CFLAGS}" \
+	CFLAGS="${COMMON_CFLAGS} -march=native" \
+	CXXFLAGS="${COMMON_CFLAGS} -march=native" \
 	CFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
 	CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
 	> ${LOGS}/cross-${GCCPKG}.log 2>&1 || exit 1
