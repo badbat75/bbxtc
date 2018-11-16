@@ -11,7 +11,6 @@ HCOMPILERS=${TOOLCHAINS}/hcompilers
 XCOMPILERS=${TOOLCHAINS}/xcompilers
 LOGS=${TOOLCHAINS}/logs
 
-HOSTARCH=$(cc -dumpmachine)
 NTHREADS=$(echo $(nproc)/2+1 | bc)
 export MAKEFLAGS="-j${NTHREADS} V=1"
 
@@ -113,24 +112,19 @@ function host_gcc () {
 	cd ${XGCCBUILD}
 	echo -n "Configuring HostGCC..."
 	#--with-isl=${ISL_XBIN}
-	#--build=${HOSTARCH} --host=${HOSTARCH} --target=${HOSTARCH} \
 	${BASESRC}/configure -v \
+	--build=${HOSTARCH} --host=${HOSTARCH} --target=${HOSTARCH} \
 	--prefix=${PKG_HBIN} --libdir=${PKG_HBIN}/lib --libexecdir=${PKG_HBIN}/lib \
-	${BINUTILSCOMMONCONFIG} ${GCCCOMMONCONFIG} --disable-multilib \
-	CC_FOR_BUILD="ccache ${HOSTARCH}-gcc -O3 -pipe -march=native -DBBBUILD=1" \
-	CXX_FOR_BUILD="ccache ${HOSTARCH}-g++ -O3 -pipe march=native -DBBBUILD=1" \
-	CC="ccache ${HOSTARCH}-gcc" \
-	CXX="ccache ${HOSTARCH}-g++" \
+	${BINUTILSCOMMONCONFIG} ${GCCCOMMONCONFIG} \
+	--disable-multilib \
 	CFLAGS="${COMMON_CFLAGS} -march=native" \
 	CXXFLAGS="${COMMON_CFLAGS} -march=native" \
-	CC_FOR_TARGET="ccache ${HOSTARCH}-gcc -DBBTARGET=1" \
-	CXX_FOR_TARGET="ccache ${HOSTARCH}-g++ -DBBTARGET=1" \
 	CFLAGS_FOR_TARGET="${COMMON_CFLAGS} -march=native" \
 	CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS} -march=native" \
 	> ${LOGS}/host-${GCCPKG}.log 2>&1 || exit 1
 	echo "Done"
 	echo -n "Compiling HostGCC..."
-	make >> ${LOGS}/host-${GCCPKG}.log 2>&1 || exit 1
+	make BOOT_CFLAGS="${COMMON_CFLAGS}" >> ${LOGS}/host-${GCCPKG}.log 2>&1 || exit 1
 	echo "Done."
 	echo -n "Installing HostGCC..."
 	make install-strip >> ${LOGS}/host-${GCCPKG}.log 2>&1 || exit 1
@@ -141,6 +135,7 @@ function host_gcc () {
 	cd ..
 	rm -rf ${XGCCBUILD}
 	rm -rf ${BASESRC}
+	export PATH="${PKG_HBIN}/bin:${PATH}"
 }
 
 	function test_cross_gcc () {
@@ -190,24 +185,19 @@ function cross_gcc () {
 	#--with-isl=${ISL_XBIN}
 	${BASESRC}/configure -v \
 	--build=${HOSTARCH} --host=${HOSTARCH} --target=${TARGETARCH} \
-	${GCCTARGETCONFIG} \
 	--prefix=${PKG_XBIN} --libdir=${PKG_XBIN}/lib --libexecdir=${PKG_XBIN}/lib --with-sysroot=${SYSROOT} \
-	${BINUTILSCOMMONCONFIG} ${GCCCOMMONCONFIG} \
-	CC_FOR_BUILD="ccache ${HOSTARCH}-gcc -O3 -pipe" \
-	CXX_FOR_BUILD="ccache ${HOSTARCH}-g++ -O3 -pipe" \
-	CC="ccache ${HOSTARCH}-gcc" \
-	CXX="ccache ${HOSTARCH}-g++" \
+	${BINUTILSCOMMONCONFIG} ${GCCCOMMONCONFIG} ${GCCTARGETCONFIG} \
 	CFLAGS="${COMMON_CFLAGS}" \
 	CXXFLAGS="${COMMON_CFLAGS}" \
 	CFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
 	CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
-	> ${LOGS}/x${GCCPKG}.log 2>&1 || exit 1
+	> ${LOGS}/cross-${GCCPKG}.log 2>&1 || exit 1
 	echo "Done"
 	echo -n "Compiling CrossGCC..."
-	make >> ${LOGS}/x${GCCPKG}.log 2>&1 || exit 1
+	make >> ${LOGS}/cross-${GCCPKG}.log 2>&1 || exit 1
 	echo "Done."
 	echo -n "Installing CrossGCC..."
-	make install-strip >> ${LOGS}/x${GCCPKG}.log 2>&1 || exit 1
+	make install-strip >> ${LOGS}/cross-${GCCPKG}.log 2>&1 || exit 1
 	echo "Done."
 	echo "You can find the final CrossGCC binaries for ${TARGETARCH} here:"
 	echo "${PKG_XBIN}"
@@ -226,7 +216,7 @@ function cross_gcc () {
 	EOF
 }
 
-function gcc () {
+function final_gcc () {
 	#isl || exit 1
 	test -d ${PKG_BIN} && rm -rf ${PKG_BIN}
 	mkdir -p ${PKG_BIN}
@@ -251,15 +241,12 @@ function gcc () {
 	--build=${HOSTARCH} --host=${TARGETARCH} --target=${TARGETARCH} \
 	--program-suffix=-${GCCVER} \
 	--prefix=/usr --libdir=/usr/lib/${TARGETARCH}/${GCCVER} --libexecdir=/usr/lib --with-slibdir=/lib/${TARGETARCH}/${GCCVER} --with-sysroot=/ \
-	${GCCTARGETCONFIG} ${GCCCOMMONCONFIG} ${BINUTILSCOMMONCONFIG} \
-	CC_FOR_BUILD="ccache ${HOSTARCH}-gcc" \
-	CXX_FOR_BUILD="ccache ${HOSTARCH}-g++" \
-	CC="ccache ${TARGETARCH}-gcc --sysroot=${SYSROOT}" \
-	CXX="ccache ${TARGETARCH}-g++ --sysroot=${SYSROOT}" \
+	${BINUTILSCOMMONCONFIG} ${GCCCOMMONCONFIG} ${GCCTARGETCONFIG} \
+	--disable-multilib \
+	CC="${TARGETARCH}-gcc --sysroot=${SYSROOT}" \
+	CXX="${TARGETARCH}-g++ --sysroot=${SYSROOT}" \
 	CFLAGS="${COMMON_CFLAGS}" \
 	CXXFLAGS="${COMMON_CFLAGS}" \
-	CC_FOR_TARGET="ccache ${TARGETARCH}-gcc" \
-	CXX_FOR_TARGET="ccache ${TARGETARCH}-g++" \
 	CFLAGS_FOR_TARGET="${COMMON_CFLAGS} --sysroot=${SYSROOT}" \
 	CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS} --sysroot=${SYSROOT}" \
 	host_configargs="gcc_cv_objdump=${TARGETARCH}-objdump" \
@@ -301,7 +288,7 @@ function finalize () {
 function all_steps () {
 	prepare_sources || exit 1
 	cross_gcc || exit 1
-	gcc || exit 1
+	final_gcc || exit 1
 	zip_gcc || exit 1
 	finalize || exit 1
 	exit 0
@@ -325,6 +312,7 @@ case "${1}" in
 			-S --send
 			-P --port
 			-h --help
+
 		EOF
 		finalize
 		exit 0
@@ -334,13 +322,16 @@ case "${1}" in
 		echo "Recipe name: ${RECIPEFILE}"
 		test ! -f "${RECIPEFILE}" && echo "${RECIPEFILE} doesn't exist" && exit 1
 		. $(realpath ${RECIPEFILE})
-		PKG_HBIN=${HCOMPILERS}/${PKG_NAME}
-		PKG_XBIN=${XCOMPILERS}/${PKG_NAME}
-		PKG_BIN=${NATIVES}/${PKG_NAME}
-		PKG_TAR=${NATIVES}/${PKG_NAME}.tar.xz
+		HPKG_NAME=${PKG_NAME}
+		TPKG_NAME=${PKG_NAME}
+		PKG_HBIN=${HCOMPILERS}/${HPKG_NAME}
+		PKG_XBIN=${XCOMPILERS}/${TPKG_NAME}
+		PKG_BIN=${NATIVES}/${TPKG_NAME}
+		PKG_TAR=${NATIVES}/${TPKG_NAME}.tar.xz
 		export SYSROOT=${TOOLCHAINS}/sysroots/${DISTRO_NAME}/${DISTRO_REL}/${DISTRO_ARCH}
 		export PATH="${PKG_XBIN}/bin:${PATH}"
 		test -x ${PKG_HBIN}/bin/gcc && export PATH="${PKG_HBIN}/bin:${PATH}" && echo "Added HBIN PATH: ${PKG_HBIN}/bin"
+		HOSTARCH=$(gcc -dumpmachine)
 		[ "$1" == "${RECIPEFILE}" ] && all_steps
 	;;
 esac
@@ -358,7 +349,7 @@ while (( "${#} - 1" )); do
 			cross_gcc || exit 1
 		;;
 		-f|--final-gcc)
-			gcc || exit 1
+			final_gcc || exit 1
 			zip_gcc || exit 1
 		;;
 		-z|--zip-gcc)
@@ -381,6 +372,16 @@ while (( "${#} - 1" )); do
 		;;
 		-H|--host-gcc)
 			host_gcc || exit 1
+		;;
+		-v|--version)
+			echo "GCC version in $(which gcc)"
+			${HOSTARCH}-gcc -v
+			echo ""
+			echo "Binutils version in $(which ldd)"
+			echo ""
+			ld -v
+			echo ""
+			exit 1
 		;;
 		*)
 			echo "Unrecognized parameter $1"
