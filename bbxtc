@@ -326,7 +326,7 @@ case "${1}" in
 		PKG_TAR=${NATIVES}/${TPKG_NAME}.tar.xz
 		export SYSROOT=${TOOLCHAINS}/sysroots/${DISTRO_NAME}/${DISTRO_REL}/${DISTRO_ARCH}
 		export PATH="${PKG_XBIN}/bin:${PATH}"
-		test -x ${PKG_HBIN}/bin/gcc && export PATH="${PKG_HBIN}/bin:${PATH}" && echo "Added HBIN PATH: ${PKG_HBIN}/bin"
+		test -x ${PKG_HBIN}/bin/gcc && export PATH="${PKG_HBIN}/bin:${PATH}" && export LD_LIBRARY_PATH=${PKG_HBIN}/lib64 && echo "Added HBIN PATH: ${PKG_HBIN}/bin"
 		HOSTARCH=$(gcc -dumpmachine)
 		[ "$1" == "${RECIPEFILE}" ] && all_steps
 	;;
