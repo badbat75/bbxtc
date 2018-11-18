@@ -99,9 +99,12 @@ function prepare_sources () {
 	}
 
 function host_gcc () {
-	test -d ${PKG_HBIN} && rm -rf ${PKG_HBIN}
-	mkdir -p ${PKG_HBIN}
-	create_base_sources --with-isl
+	if [ "${WITH_NATIVE_BINUTILS}" = "1" ]
+	then
+		create_base_sources --with-isl --with-binutils
+	else
+		create_base_sources --with-isl
+	fi
 	if [ "x${XGCCBUILD}" != "x" ]
 	then
 		test -d ${XGCCBUILD} && rm -rf ${XGCCBUILD}
@@ -112,19 +115,24 @@ function host_gcc () {
 	cd ${XGCCBUILD}
 	echo -n "Configuring HostGCC..."
 	${BASESRC}/configure -v \
-	--build=${HOSTARCH} --host=${HOSTARCH} --target=${HOSTARCH} \
-	--prefix=${PKG_HBIN} --libdir=${PKG_HBIN}/lib --libexecdir=${PKG_HBIN}/lib \
-	${BINUTILSCOMMONCONFIG} ${GCCCOMMONCONFIG} \
-	--disable-multilib \
-	CFLAGS="${COMMON_CFLAGS} -march=native" \
-	CXXFLAGS="${COMMON_CFLAGS} -march=native" \
-	CFLAGS_FOR_TARGET="${COMMON_CFLAGS} -march=native" \
-	CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS} -march=native" \
-	> ${LOGS}/host-${GCCPKG}.log 2>&1 || exit 1
+		--build=${HOSTARCH} --host=${HOSTARCH} --target=${HOSTARCH} \
+		--prefix=${PKG_HBIN} --libdir=${PKG_HBIN}/lib --libexecdir=${PKG_HBIN}/lib \
+		${BINUTILSCOMMONCONFIG} ${GCCCOMMONCONFIG} \
+		--disable-multilib \
+		> ${LOGS}/host-${GCCPKG}.log 2>&1 || exit 1
 	echo "Done"
 	echo -n "Compiling HostGCC..."
-	make BOOT_CFLAGS="${COMMON_CFLAGS}" >> ${LOGS}/host-${GCCPKG}.log 2>&1 || exit 1
+	make \
+		BOOT_CFLAGS="${COMMON_CFLAGS}" \
+		CFLAGS="${COMMON_CFLAGS} -march=native" \
+		CXXFLAGS="${COMMON_CFLAGS} -march=native" \
+		CFLAGS_FOR_TARGET="${COMMON_CFLAGS} -march=native" \
+		CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS} -march=native" \
+		LD_LIBRARY_PATH=${XGCCBUILD}/prev-opcodes/.libs:${XGCCBUILD}/prev-bfd/.libs \
+		>> ${LOGS}/host-${GCCPKG}.log 2>&1 || exit 1
 	echo "Done."
+	test -d ${PKG_HBIN} && rm -rf ${PKG_HBIN}
+	mkdir -p ${PKG_HBIN}
 	echo -n "Installing HostGCC..."
 	make install-strip >> ${LOGS}/host-${GCCPKG}.log 2>&1 || exit 1
 	echo "Done."
@@ -135,6 +143,15 @@ function host_gcc () {
 	rm -rf ${XGCCBUILD}
 	rm -rf ${BASESRC}
 	export PATH="${PKG_HBIN}/bin:${PATH}"
+	export LD_LIBRARY_PATH=${PKG_HBIN}/lib64
+	cat >${PKG_HBIN}.source <<-EOF
+		# To prepare the build environment launch:
+		#
+		# source ${PKG_HBIN}.source
+
+		export PATH=${PKG_HBIN}/bin:\${PATH}
+		${LD_LIBRARY_PATH:+"export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}"}
+	EOF
 }
 
 	function test_cross_gcc () {
@@ -167,9 +184,12 @@ function host_gcc () {
 	}
 
 function cross_gcc () {
-	test -d ${PKG_XBIN} && rm -rf ${PKG_XBIN}
-	mkdir -p ${PKG_XBIN}
-	create_base_sources --with-isl --with-binutils
+	if [ "${WITH_NATIVE_BINUTILS}" = "1" ]
+	then
+		create_base_sources --with-isl --with-binutils
+	else
+		create_base_sources --with-isl
+	fi
 	if [ "x${XGCCBUILD}" != "x" ]
 	then
 		test -d ${XGCCBUILD} && rm -rf ${XGCCBUILD}
@@ -180,18 +200,23 @@ function cross_gcc () {
 	cd ${XGCCBUILD}
 	echo -n "Configuring CrossGCC..."
 	${BASESRC}/configure -v \
-	--build=${HOSTARCH} --host=${HOSTARCH} --target=${TARGETARCH} \
-	--prefix=${PKG_XBIN} --libdir=${PKG_XBIN}/lib --libexecdir=${PKG_XBIN}/lib --with-sysroot=${SYSROOT} \
-	${BINUTILSCOMMONCONFIG} ${GCCCOMMONCONFIG} ${GCCTARGETCONFIG} \
-	CFLAGS="${COMMON_CFLAGS} -march=native" \
-	CXXFLAGS="${COMMON_CFLAGS} -march=native" \
-	CFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
-	CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
-	> ${LOGS}/cross-${GCCPKG}.log 2>&1 || exit 1
+		--build=${HOSTARCH} --host=${HOSTARCH} --target=${TARGETARCH} \
+		--prefix=${PKG_XBIN} --libdir=${PKG_XBIN}/lib --libexecdir=${PKG_XBIN}/lib --with-sysroot=${SYSROOT} \
+		${BINUTILSCOMMONCONFIG} ${GCCCOMMONCONFIG} ${GCCTARGETCONFIG} \
+		> ${LOGS}/cross-${GCCPKG}.log 2>&1 || exit 1
 	echo "Done"
 	echo -n "Compiling CrossGCC..."
-	make >> ${LOGS}/cross-${GCCPKG}.log 2>&1 || exit 1
+	make \
+		CFLAGS_FOR_BUILD="${COMMON_CFLAGS} -march=native" \
+		CXXFLAGS_FOR_BUILD="${COMMON_CFLAGS} -march=native" \
+		CFLAGS="${COMMON_CFLAGS} -march=native" \
+		CXXFLAGS="${COMMON_CFLAGS} -march=native" \
+		CFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
+		CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
+		>> ${LOGS}/cross-${GCCPKG}.log 2>&1 || exit 1
 	echo "Done."
+	test -d ${PKG_XBIN} && rm -rf ${PKG_XBIN}
+	mkdir -p ${PKG_XBIN}
 	echo -n "Installing CrossGCC..."
 	make install-strip >> ${LOGS}/cross-${GCCPKG}.log 2>&1 || exit 1
 	echo "Done."
@@ -208,20 +233,46 @@ function cross_gcc () {
 		# source ${PKG_XBIN}.source
 
 		export PATH=${PKG_XBIN}/bin:\${PATH}
+		${LD_LIBRARY_PATH:+"export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}"}
 		export SYSROOT=${SYSROOT}
 	EOF
 }
 
+	function test_final_gcc () {
+		echo -n "Testing  Final GCC..."
+		CPUARCH=$(echo ${TARGETARCH} | sed 's/\(+*\)-.*/\1/g')
+		QEMU=0
+		test -f "$(which qemu-${CPUARCH} 2>/dev/null)" && QEMU=1
+		if [ "${QEMU}" -eq "1" ]
+			then
+			TESTSTRING="$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)"
+			cat > /tmp/${TESTSTRING}.c <<-EOF
+				#include <stdio.h>
+
+				int
+				main (void)
+				{
+				printf ("${TESTSTRING}\n");
+				return 0;
+				}
+			EOF
+			echo -n "Compile test with qemu-${CPUARCH}..."
+			qemu-${CPUARCH} -L ${SYSROOT} ${PKG_BIN}/usr/bin/gcc /tmp/${TESTSTRING}.c -o /tmp/${TESTSTRING} || exit 1
+			echo -n "Test executable with qemu-${CPUARCH}..."
+			TEST=$(qemu-${CPUARCH} -L ${SYSROOT} /tmp/${TESTSTRING}) || exit 1
+			[ ! "${TEST}" == "${TESTSTRING}" ] && exit 1
+		fi
+		rm -f /tmp/${TESTSTRING}.c /tmp/${TESTSTRING}
+		echo "Done."
+		echo ""
+	}
+
 function final_gcc () {
-	#isl || exit 1
-	test -d ${PKG_BIN} && rm -rf ${PKG_BIN}
-	mkdir -p ${PKG_BIN}
 	if [ "${WITH_NATIVE_BINUTILS}" = "1" ]
 	then
 		create_base_sources --with-isl --with-binutils
-		#binutils || exit 1
 	else
-		create_base_sources
+		create_base_sources --with-isl
 	fi
 	if [ "x${GCCBUILD}" != "x" ]
 	then
@@ -232,25 +283,29 @@ function final_gcc () {
 	fi
 	cd ${GCCBUILD}
 	echo -n "Configuring Final GCC..."
-	#--with-isl=${ISL_BIN}
 	${BASESRC}/configure -v \
 	--build=${HOSTARCH} --host=${TARGETARCH} --target=${TARGETARCH} \
 	--program-suffix=-${GCCVER} \
 	--prefix=/usr --libdir=/usr/lib/${TARGETARCH}/${GCCVER} --libexecdir=/usr/lib --with-slibdir=/lib/${TARGETARCH}/${GCCVER} --with-sysroot=/ \
 	${BINUTILSCOMMONCONFIG} ${GCCCOMMONCONFIG} ${GCCTARGETCONFIG} \
 	--disable-multilib \
-	CC="${TARGETARCH}-gcc --sysroot=${SYSROOT}" \
-	CXX="${TARGETARCH}-g++ --sysroot=${SYSROOT}" \
-	CFLAGS="${COMMON_CFLAGS}" \
-	CXXFLAGS="${COMMON_CFLAGS}" \
-	CFLAGS_FOR_TARGET="${COMMON_CFLAGS} --sysroot=${SYSROOT}" \
-	CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS} --sysroot=${SYSROOT}" \
 	host_configargs="gcc_cv_objdump=${TARGETARCH}-objdump" \
 	> ${LOGS}/${GCCPKG}.log 2>&1 || exit 1
 	echo "Done"
 	echo -n "Compiling Final GCC..."
-	make >> ${LOGS}/${GCCPKG}.log 2>&1 || exit 1
+	make \
+		CFLAGS_FOR_BUILD="${COMMON_CFLAGS}" \
+		CXXFLAGS_FOR_BUILD="${COMMON_CFLAGS}" \
+		CC="${TARGETARCH}-gcc --sysroot=${SYSROOT}" \
+		CXX="${TARGETARCH}-g++ --sysroot=${SYSROOT}" \
+		CFLAGS="${COMMON_CFLAGS}" \
+		CXXFLAGS="${COMMON_CFLAGS}" \
+		CFLAGS_FOR_TARGET="${COMMON_CFLAGS} --sysroot=${SYSROOT}" \
+		CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS} --sysroot=${SYSROOT}" \
+		>> ${LOGS}/${GCCPKG}.log 2>&1 || exit 1
 	echo "Done."
+	test -d ${PKG_BIN} && rm -rf ${PKG_BIN}
+	mkdir -p ${PKG_BIN}
 	echo -n "Installing Final GCC..."
 	make DESTDIR=${PKG_BIN} install-strip >> ${LOGS}/${GCCPKG}.log 2>&1 || exit 1
 	echo "Done."
