@@ -1,4 +1,5 @@
 #!/bin/bash
+BBXTCVER=0.9
 START_PWD=${PWD}
 PROGRAM_PATH=$(dirname $(realpath ${0}))
 PROGRAM_NAME=$(basename ${0})
@@ -99,7 +100,8 @@ function prepare_sources () {
 	}
 
 function host_gcc () {
-	echo -n "Configuring HostGCC..."
+	echo "Hosted GCC"
+	echo "=========="
 	if [ "${WITH_NATIVE_BINUTILS}" = "1" ]
 	then
 		create_base_sources --with-isl --with-binutils
@@ -114,11 +116,11 @@ function host_gcc () {
 		XGCCBUILD=$(mktemp -d)
 	fi
 	cd ${XGCCBUILD}
+	echo -n "Configuring HostGCC..."
 	${BASESRC}/configure -v \
 		--build=${HOSTARCH} --host=${HOSTARCH} --target=${HOSTARCH} \
 		--prefix=${PKG_HBIN} --libdir=${PKG_HBIN}/lib --libexecdir=${PKG_HBIN}/lib \
-		${BINUTILSCOMMONCONFIG} ${GCCCOMMONCONFIG} \
-		--disable-multilib \
+		${BINUTILSCOMMONCONFIG} ${GCCCOMMONCONFIG} ${BINUTILSHOSTCONFIG} ${GCCHOSTCONFIG} \
 		> ${LOGS}/host-${GCCPKG}.log 2>&1 || exit 1
 	echo "Done"
 	echo -n "Compiling HostGCC..."
@@ -184,7 +186,8 @@ function host_gcc () {
 	}
 
 function cross_gcc () {
-	echo -n "Configuring CrossGCC..."
+	echo "Cross GCC for ${TARGETARCH}"
+	echo "===================================="
 	if [ "${WITH_NATIVE_BINUTILS}" = "1" ]
 	then
 		create_base_sources --with-isl --with-binutils
@@ -199,10 +202,11 @@ function cross_gcc () {
 		XGCCBUILD=$(mktemp -d)
 	fi
 	cd ${XGCCBUILD}
+	echo -n "Configuring CrossGCC..."
 	${BASESRC}/configure -v \
 		--build=${HOSTARCH} --host=${HOSTARCH} --target=${TARGETARCH} \
 		--prefix=${PKG_XBIN} --libdir=${PKG_XBIN}/lib --libexecdir=${PKG_XBIN}/lib --with-sysroot=${SYSROOT} \
-		${BINUTILSCOMMONCONFIG} ${GCCCOMMONCONFIG} ${GCCTARGETCONFIG} \
+		${BINUTILSCOMMONCONFIG} ${GCCCOMMONCONFIG} ${BINUTILSCROSSCONFIG} ${GCCCROSSCONFIG} \
 		> ${LOGS}/cross-${GCCPKG}.log 2>&1 || exit 1
 	echo "Done"
 	echo -n "Compiling CrossGCC..."
@@ -268,7 +272,8 @@ function cross_gcc () {
 	}
 
 function final_gcc () {
-	echo -n "Configuring Final GCC..."
+	echo "Target GCC for ${TARGETARCH}"
+	echo "===================================="
 	if [ "${WITH_NATIVE_BINUTILS}" = "1" ]
 	then
 		create_base_sources --with-isl --with-binutils
@@ -283,11 +288,12 @@ function final_gcc () {
 		GCCBUILD=$(mktemp -d)
 	fi
 	cd ${GCCBUILD}
+	echo -n "Configuring Final GCC..."
 	${BASESRC}/configure -v \
 	--build=${HOSTARCH} --host=${TARGETARCH} --target=${TARGETARCH} \
 	--program-suffix=-${GCCVER} \
 	--prefix=/usr --libdir=/usr/lib/${TARGETARCH}/${GCCVER} --libexecdir=/usr/lib --with-slibdir=/lib/${TARGETARCH}/${GCCVER} --with-sysroot=/ \
-	${BINUTILSCOMMONCONFIG} ${GCCCOMMONCONFIG} ${GCCTARGETCONFIG} \
+	${BINUTILSCOMMONCONFIG} ${GCCCOMMONCONFIG} ${BINUTILSTARGETCONFIG} ${GCCTARGETCONFIG} \
 	--disable-multilib \
 	host_configargs="gcc_cv_objdump=${TARGETARCH}-objdump" \
 	> ${LOGS}/${GCCPKG}.log 2>&1 || exit 1
@@ -355,6 +361,7 @@ case "${1}" in
 
 			${PROGRAM_NAME} [parameters] [{-S|--send} [username@]<IP or hostname>:[path] [{-P|--port} <ssh port>]] <recipe_file>
 
+			-H --host-gcc
 			-a --all
 			-s --create-sysroot
 			-p --prepare-source
@@ -362,6 +369,7 @@ case "${1}" in
 			-f --final-gcc
 			-S --send
 			-P --port
+			-v --version
 			-h --help
 
 		EOF
@@ -370,6 +378,9 @@ case "${1}" in
 	;;
 	*)
 		RECIPEFILE=${@:$#}
+		echo "${PROGRAM_NAME} v${BBXTCVER}"
+		echo "============================"
+		echo ""
 		echo "Recipe name: ${RECIPEFILE}"
 		test ! -f "${RECIPEFILE}" && echo "${RECIPEFILE} doesn't exist" && exit 1
 		. $(realpath ${RECIPEFILE})
@@ -381,7 +392,14 @@ case "${1}" in
 		PKG_TAR=${NATIVES}/${TPKG_NAME}.tar.xz
 		export SYSROOT=${TOOLCHAINS}/sysroots/${DISTRO_NAME}/${DISTRO_REL}/${DISTRO_ARCH}
 		export PATH="${PKG_XBIN}/bin:${PATH}"
-		test -x ${PKG_HBIN}/bin/gcc && export PATH="${PKG_HBIN}/bin:${PATH}" && export LD_LIBRARY_PATH=${PKG_HBIN}/lib64 && echo "Added HBIN PATH: ${PKG_HBIN}/bin"
+		if [ -x ${PKG_HBIN}/bin/gcc ]
+		then
+			export PATH="${PKG_HBIN}/bin:${PATH}"
+			export LD_LIBRARY_PATH=${PKG_HBIN}/lib64:${PKG_HBIN}/lib
+			echo "Added HBIN PATH: ${PKG_HBIN}/bin"
+			echo "LD_LIBRARY_PATH: ${LD_LIBRARY_PATH}"
+			echo ""
+		fi
 		HOSTARCH=$(gcc -dumpmachine)
 		[ "$1" == "${RECIPEFILE}" ] && all_steps
 	;;
