@@ -99,6 +99,7 @@ function prepare_sources () {
 	}
 
 function host_gcc () {
+	echo -n "Configuring HostGCC..."
 	if [ "${WITH_NATIVE_BINUTILS}" = "1" ]
 	then
 		create_base_sources --with-isl --with-binutils
@@ -113,7 +114,6 @@ function host_gcc () {
 		XGCCBUILD=$(mktemp -d)
 	fi
 	cd ${XGCCBUILD}
-	echo -n "Configuring HostGCC..."
 	${BASESRC}/configure -v \
 		--build=${HOSTARCH} --host=${HOSTARCH} --target=${HOSTARCH} \
 		--prefix=${PKG_HBIN} --libdir=${PKG_HBIN}/lib --libexecdir=${PKG_HBIN}/lib \
@@ -184,6 +184,7 @@ function host_gcc () {
 	}
 
 function cross_gcc () {
+	echo -n "Configuring CrossGCC..."
 	if [ "${WITH_NATIVE_BINUTILS}" = "1" ]
 	then
 		create_base_sources --with-isl --with-binutils
@@ -198,7 +199,6 @@ function cross_gcc () {
 		XGCCBUILD=$(mktemp -d)
 	fi
 	cd ${XGCCBUILD}
-	echo -n "Configuring CrossGCC..."
 	${BASESRC}/configure -v \
 		--build=${HOSTARCH} --host=${HOSTARCH} --target=${TARGETARCH} \
 		--prefix=${PKG_XBIN} --libdir=${PKG_XBIN}/lib --libexecdir=${PKG_XBIN}/lib --with-sysroot=${SYSROOT} \
@@ -268,6 +268,7 @@ function cross_gcc () {
 	}
 
 function final_gcc () {
+	echo -n "Configuring Final GCC..."
 	if [ "${WITH_NATIVE_BINUTILS}" = "1" ]
 	then
 		create_base_sources --with-isl --with-binutils
@@ -282,7 +283,6 @@ function final_gcc () {
 		GCCBUILD=$(mktemp -d)
 	fi
 	cd ${GCCBUILD}
-	echo -n "Configuring Final GCC..."
 	${BASESRC}/configure -v \
 	--build=${HOSTARCH} --host=${TARGETARCH} --target=${TARGETARCH} \
 	--program-suffix=-${GCCVER} \
@@ -418,11 +418,11 @@ while (( "${#} - 1" )); do
 			send_gcc
 			break
 		;;
-		-a|--all)
-			all_steps
-		;;
 		-H|--host-gcc)
 			host_gcc || exit 1
+		;;
+		-a|--all)
+			all_steps
 		;;
 		-v|--version)
 			echo "GCC version in $(which gcc)"
