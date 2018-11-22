@@ -379,9 +379,9 @@ case "${1}" in
 	*)
 		RECIPEFILE=${@:$#}
 		echo "${PROGRAM_NAME} v${BBXTCVER}"
-		echo "============================"
-		echo ""
+		echo "================================================"
 		echo "Recipe name: ${RECIPEFILE}"
+		echo ""
 		test ! -f "${RECIPEFILE}" && echo "${RECIPEFILE} doesn't exist" && exit 1
 		. $(realpath ${RECIPEFILE})
 		HPKG_NAME=${PKG_NAME}
