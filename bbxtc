@@ -224,13 +224,9 @@ function cross_gcc () {
 	echo -n "Installing CrossGCC..."
 	make install-strip >> ${LOGS}/cross-${GCCPKG}.log 2>&1 || exit 1
 	echo "Done."
-	echo "You can find the final CrossGCC binaries for ${TARGETARCH} here:"
-	echo "${PKG_XBIN}"
-	echo ""
-	cd ..
+	test_cross_gcc || exit 1
 	rm -rf ${XGCCBUILD}
 	rm -rf ${BASESRC}
-	test_cross_gcc || exit 1
 	cat >${PKG_XBIN}.source <<-EOF
 		# To prepare the build environment launch:
 		#
@@ -240,6 +236,9 @@ function cross_gcc () {
 		${LD_LIBRARY_PATH:+"export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}"}
 		export SYSROOT=${SYSROOT}
 	EOF
+	echo "You can find the final CrossGCC binaries for ${TARGETARCH} here:"
+	echo "${PKG_XBIN}"
+	echo ""
 }
 
 	function test_final_gcc () {
