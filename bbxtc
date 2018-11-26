@@ -119,7 +119,7 @@ function host_gcc () {
 	echo -n "Configuring HostGCC..."
 	${BASESRC}/configure -v \
 		--build=${HOSTARCH} --host=${HOSTARCH} --target=${HOSTARCH} \
-		--prefix=${PKG_HBIN} --libdir=${PKG_HBIN}/lib --libexecdir=${PKG_HBIN}/lib \
+		--prefix=${PKG_HBIN} --mandir=${PKG_HBIN}/share/man --infodir=${PKG_HBIN}/share/info \
 		${BINUTILSCOMMONCONFIG} ${GCCCOMMONCONFIG} ${BINUTILSHOSTCONFIG} ${GCCHOSTCONFIG} \
 		> ${LOGS}/host-${GCCPKG}.log 2>&1 || exit 1
 	echo "Done"
@@ -145,7 +145,7 @@ function host_gcc () {
 	rm -rf ${XGCCBUILD}
 	rm -rf ${BASESRC}
 	export PATH="${PKG_HBIN}/bin:${PATH}"
-	export LD_LIBRARY_PATH=${PKG_HBIN}/lib64
+	export LD_LIBRARY_PATH=${PKG_HBIN}/lib64:${PKG_HBIN}/lib
 	cat >${PKG_HBIN}.source <<-EOF
 		# To prepare the build environment launch:
 		#
