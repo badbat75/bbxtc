@@ -117,6 +117,10 @@ function host_gcc () {
 	fi
 	cd ${XGCCBUILD}
 	echo -n "Configuring HostGCC..."
+	case $(uname -m) in
+		x86_64) BINUTILSHOSTCONFIG="--libdir=${PKG_HBIN}/lib64 ${BINUTILSHOSTCONFIG}"
+				;;
+	esac
 	${BASESRC}/configure -v \
 		--build=${HOSTARCH} --host=${HOSTARCH} --target=${HOSTARCH} \
 		--prefix=${PKG_HBIN} --mandir=${PKG_HBIN}/share/man --infodir=${PKG_HBIN}/share/info \
@@ -131,12 +135,13 @@ function host_gcc () {
 		CFLAGS_FOR_TARGET="${COMMON_CFLAGS} -march=native" \
 		CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS} -march=native" \
 		LD_LIBRARY_PATH=${XGCCBUILD}/prev-opcodes/.libs:${XGCCBUILD}/prev-bfd/.libs \
+		tooldir=${PKG_HBIN} \
 		>> ${LOGS}/host-${GCCPKG}.log 2>&1 || exit 1
 	echo "Done."
 	test -d ${PKG_HBIN} && rm -rf ${PKG_HBIN}
 	mkdir -p ${PKG_HBIN}
 	echo -n "Installing HostGCC..."
-	make install-strip >> ${LOGS}/host-${GCCPKG}.log 2>&1 || exit 1
+	make tooldir=${PKG_HBIN} install-strip >> ${LOGS}/host-${GCCPKG}.log 2>&1 || exit 1
 	echo "Done."
 	echo "You can find the final HostGCC binaries for ${TARGETARCH} here:"
 	echo "${PKG_HBIN}"
