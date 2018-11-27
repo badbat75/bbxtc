@@ -398,10 +398,9 @@ case "${1}" in
 		PKG_TAR=${NATIVES}/${TPKG_NAME}.tar.xz
 		export SYSROOT=${TOOLCHAINS}/sysroots/${DISTRO_NAME}/${DISTRO_REL}/${DISTRO_ARCH}
 		export PATH="${PKG_XBIN}/bin:${PATH}"
-		if [ -x ${PKG_HBIN}/bin/gcc ]
+		if [ -x ${PKG_HBIN}/bin/gcc ] && [ -f ${PKG_HBIN}.source ]
 		then
-			export PATH="${PKG_HBIN}/bin:${PATH}"
-			export LD_LIBRARY_PATH=${PKG_HBIN}/lib64:${PKG_HBIN}/lib
+			. ${PKG_HBIN}.source
 			echo "Added HBIN PATH: ${PKG_HBIN}/bin"
 			echo "LD_LIBRARY_PATH: ${LD_LIBRARY_PATH}"
 			echo ""
