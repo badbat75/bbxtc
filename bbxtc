@@ -119,6 +119,9 @@ function host_gcc () {
 	echo -n "Configuring HostGCC..."
 	case $(uname -m) in
 		x86_64) BINUTILSHOSTCONFIG="--libdir=${PKG_HBIN}/lib64 ${BINUTILSHOSTCONFIG}"
+				HOST_LD_LIBRARY_PATH="${PKG_HBIN}/lib64"
+				;;
+		*) 		HOST_LD_LIBRARY_PATH="${PKG_HBIN}/lib"
 				;;
 	esac
 	${BASESRC}/configure -v \
@@ -149,16 +152,15 @@ function host_gcc () {
 	cd ..
 	rm -rf ${XGCCBUILD}
 	rm -rf ${BASESRC}
-	export PATH="${PKG_HBIN}/bin:${PATH}"
-	export LD_LIBRARY_PATH=${PKG_HBIN}/lib64:${PKG_HBIN}/lib
-	cat >${PKG_HBIN}.source <<-EOF
+	cat > ${PKG_HBIN}.source <<-EOF
 		# To prepare the build environment launch:
 		#
 		# source ${PKG_HBIN}.source
 
 		export PATH=${PKG_HBIN}/bin:\${PATH}
-		${LD_LIBRARY_PATH:+"export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}"}
+		export LD_LIBRARY_PATH=${HOST_LD_LIBRARY_PATH}:\${LD_LIBRARY_PATH}
 	EOF
+	. ${PKG_HBIN}.source
 }
 
 	function test_cross_gcc () {
