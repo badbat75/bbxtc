@@ -25,6 +25,9 @@ function create_sysroot() {
 }
 
 function prepare_sources () {
+	echo "Setting up sources"
+	echo "=================="
+
 	test ! -d ${SOURCES} && mkdir -p ${SOURCES}
 	if [ ! -f "${ISLSRC}/configure" ]
 	then
@@ -38,10 +41,10 @@ function prepare_sources () {
 	fi
 	if [ ! -f "${BINUTILSSRC}/configure" ]
 	then
-		echo -n "Downloading BINUTILS..."
+		echo -n "Downloading binutils..."
 		wget -nc -q -P${SOURCES} --content-disposition "${BINUTILSURL}" || exit 1
 		echo "Done."
-		echo -n "Uncompress BINUTILS..."
+		echo -n "Uncompress binutils..."
 		tar xJf ${SOURCES}/binutils-${BINUTILSVER}.tar.xz -C${SOURCES} || exit 1
 		echo "Done."
 		echo ""
@@ -52,7 +55,7 @@ function prepare_sources () {
 		wget -nc -q -P${SOURCES} --content-disposition "${GCCURL}" || exit 1
 		echo "Done."
 		echo -n "Uncompress GCC..."
-		tar xJf ${SOURCES}/gcc-arm-src-snapshot-8.2-2018.08.tar.xz -C${SOURCES} || exit 1
+		tar xJf ${GCCSRC}.tar.xz -C${SOURCES} || exit 1
 		echo "Done."
 		patchnum=0
 		if [ ! "x${GCCPATCHES}" == "x" ]
@@ -76,28 +79,27 @@ function prepare_sources () {
 	fi
 }
 
-	function create_base_sources () {
-		BASESRC="$(mktemp -d)"
-		test -d "${BASESRC}" && rm -rf ${BASESRC}
-		mkdir ${BASESRC}
-		ln -fs ${GCCSRC}/* ${BASESRC}
-		while (( "${#}" )); do
-			case ${1} in
-				--with-isl)
-						echo -n "Including ISL in GCC sources..."
-						ln -fs ${ISLSRC} ${BASESRC}/isl
-						echo "Done."
-				;;
-				--with-binutils)
-						echo -n "Including BINUTILS in GCC sources..."
-						#find ${BINUTILSSRC} -type d -exec ln -fs {} ${BASESRC} \;
-						ln -fs ${BINUTILSSRC}/* ${BASESRC}
-						echo "Done."
-				;;
-			esac
-			shift
-		done
-	}
+function create_base_sources () {
+	BASESRC="$(mktemp -d)"
+	test -d "${BASESRC}" && rm -rf ${BASESRC}
+	mkdir ${BASESRC}
+	ln -fs ${GCCSRC}/* ${BASESRC}
+	while (( "${#}" )); do
+		case ${1} in
+			--with-isl)
+					echo -n "Including ISL in GCC sources..."
+					ln -fs ${ISLSRC} ${BASESRC}/isl
+					echo "Done."
+			;;
+			--with-binutils)
+					echo -n "Including binutils in GCC sources..."
+					ln -fs ${BINUTILSSRC}/* ${BASESRC}
+					echo "Done."
+			;;
+		esac
+		shift
+	done
+}
 
 function host_gcc () {
 	echo "Hosted GCC"
@@ -108,15 +110,9 @@ function host_gcc () {
 	else
 		create_base_sources --with-isl
 	fi
-	if [ "x${XGCCBUILD}" != "x" ]
-	then
-		test -d ${XGCCBUILD} && rm -rf ${XGCCBUILD}
-		mkdir -p ${XGCCBUILD}
-	else
-		XGCCBUILD=$(mktemp -d)
-	fi
-	cd ${XGCCBUILD}
-	echo -n "Configuring HostGCC..."
+	HGCCBUILD=$(mktemp -d)
+	cd ${HGCCBUILD}
+	echo "Configuring Host Toolchain sources..."
 	case $(uname -m) in
 		x86_64) BINUTILSHOSTCONFIG="--libdir=${PKG_HBIN}/lib64 ${BINUTILSHOSTCONFIG}"
 				HOST_LD_LIBRARY_PATH="${PKG_HBIN}/lib64"
@@ -124,33 +120,39 @@ function host_gcc () {
 		*) 		HOST_LD_LIBRARY_PATH="${PKG_HBIN}/lib"
 				;;
 	esac
+	set -x
 	${BASESRC}/configure -v \
 		--build=${HOSTARCH} --host=${HOSTARCH} --target=${HOSTARCH} \
 		--prefix=${PKG_HBIN} --mandir=${PKG_HBIN}/share/man --infodir=${PKG_HBIN}/share/info \
 		${BINUTILSCOMMONCONFIG} ${GCCCOMMONCONFIG} ${BINUTILSHOSTCONFIG} ${GCCHOSTCONFIG} \
 		> ${LOGS}/host-${GCCPKG}.log 2>&1 || exit 1
+	set +x
 	echo "Done"
-	echo -n "Compiling HostGCC..."
+	echo "Compiling Host Toolchain..."
+	set -x
 	make \
 		BOOT_CFLAGS="${COMMON_CFLAGS}" \
 		CFLAGS="${COMMON_CFLAGS} -march=native" \
 		CXXFLAGS="${COMMON_CFLAGS} -march=native" \
 		CFLAGS_FOR_TARGET="${COMMON_CFLAGS} -march=native" \
 		CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS} -march=native" \
-		LD_LIBRARY_PATH=${XGCCBUILD}/prev-opcodes/.libs:${XGCCBUILD}/prev-bfd/.libs \
+		LD_LIBRARY_PATH=${HGCCBUILD}/prev-opcodes/.libs:${HGCCBUILD}/prev-bfd/.libs \
 		tooldir=${PKG_HBIN} \
 		>> ${LOGS}/host-${GCCPKG}.log 2>&1 || exit 1
+	set +x
 	echo "Done."
 	test -d ${PKG_HBIN} && rm -rf ${PKG_HBIN}
 	mkdir -p ${PKG_HBIN}
-	echo -n "Installing HostGCC..."
+	echo "Installing Host Toolchain..."
+	set -x
 	make tooldir=${PKG_HBIN} install-strip >> ${LOGS}/host-${GCCPKG}.log 2>&1 || exit 1
+	set +x
 	echo "Done."
 	echo "You can find the final HostGCC binaries for ${TARGETARCH} here:"
 	echo "${PKG_HBIN}"
 	echo ""
 	cd ..
-	rm -rf ${XGCCBUILD}
+	rm -rf ${HGCCBUILD}
 	rm -rf ${BASESRC}
 	cat > ${PKG_HBIN}.source <<-EOF
 		# To prepare the build environment launch:
@@ -163,34 +165,34 @@ function host_gcc () {
 	. ${PKG_HBIN}.source
 }
 
-	function test_cross_gcc () {
-		echo -n "Testing XGCC..."
-		CPUARCH=$(echo ${TARGETARCH} | sed 's/\(+*\)-.*/\1/g')
-		QEMU=0
-		test -f "$(which qemu-${CPUARCH} 2>/dev/null)" && QEMU=1
-		TESTSTRING="$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)"
-		cat > /tmp/${TESTSTRING}.c <<-EOF
-			#include <stdio.h>
+function test_cross_gcc () {
+	echo -n "Testing XGCC..."
+	CPUARCH=$(echo ${TARGETARCH} | sed 's/\(+*\)-.*/\1/g')
+	QEMU=0
+	test -f "$(which qemu-${CPUARCH} 2>/dev/null)" && QEMU=1
+	TESTSTRING="$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)"
+	cat > /tmp/${TESTSTRING}.c <<-EOF
+		#include <stdio.h>
 
-			int
-			main (void)
-			{
-			printf ("${TESTSTRING}\n");
-			return 0;
-			}
-		EOF
-		echo -n "Compile test..."
-		${TARGETARCH}-gcc /tmp/${TESTSTRING}.c -o /tmp/${TESTSTRING} || exit 1
-		if [ "${QEMU}" -eq "1" ]
-		then
-			echo -n "Test executable with qemu-${CPUARCH}..."
-			TEST=$(qemu-${CPUARCH} -L ${SYSROOT} /tmp/${TESTSTRING}) || exit 1
-			[ ! "${TEST}" == "${TESTSTRING}" ] && exit 1
-		fi
-		rm -f /tmp/${TESTSTRING}.c /tmp/${TESTSTRING}
-		echo "Done."
-		echo ""
-	}
+		int
+		main (void)
+		{
+		printf ("${TESTSTRING}\n");
+		return 0;
+		}
+	EOF
+	echo -n "Compile test..."
+	${TARGETARCH}-gcc /tmp/${TESTSTRING}.c -o /tmp/${TESTSTRING} || exit 1
+	if [ "${QEMU}" -eq "1" ]
+	then
+		echo -n "Test executable with qemu-${CPUARCH}..."
+		TEST=$(qemu-${CPUARCH} -L ${SYSROOT} /tmp/${TESTSTRING}) || exit 1
+		[ ! "${TEST}" == "${TESTSTRING}" ] && exit 1
+	fi
+	rm -f /tmp/${TESTSTRING}.c /tmp/${TESTSTRING}
+	echo "Done."
+	echo ""
+}
 
 function cross_gcc () {
 	echo "Cross GCC for ${TARGETARCH}"
@@ -201,23 +203,20 @@ function cross_gcc () {
 	else
 		create_base_sources --with-isl
 	fi
-	if [ "x${XGCCBUILD}" != "x" ]
-	then
-		test -d ${XGCCBUILD} && rm -rf ${XGCCBUILD}
-		mkdir -p ${XGCCBUILD}
-	else
-		XGCCBUILD=$(mktemp -d)
-	fi
+	XGCCBUILD=$(mktemp -d)
 	cd ${XGCCBUILD}
-	echo -n "Configuring CrossGCC..."
+	echo -n "Configuring Cross Toolchain sources..."
+	set -x
 	${BASESRC}/configure -v \
 		--build=${HOSTARCH} --host=${HOSTARCH} --target=${TARGETARCH} \
 		--prefix=${PKG_XBIN} --libdir=${PKG_XBIN}/lib --libexecdir=${PKG_XBIN}/lib --with-sysroot=${SYSROOT} \
 		${BINUTILSCOMMONCONFIG} ${GCCCOMMONCONFIG} ${BINUTILSCROSSCONFIG} ${GCCCROSSCONFIG} \
 		> ${LOGS}/cross-${GCCPKG}.log 2>&1 || exit 1
+	set +x
 	echo "Done"
-	echo -n "Compiling CrossGCC..."
-	make \
+	echo -n "Compiling Cross Toolchain..."
+	set -x
+	PATH=${PKG_XBIN}/bin:${PATH} make \
 		CFLAGS_FOR_BUILD="${COMMON_CFLAGS} -march=native" \
 		CXXFLAGS_FOR_BUILD="${COMMON_CFLAGS} -march=native" \
 		CFLAGS="${COMMON_CFLAGS} -march=native" \
@@ -225,11 +224,14 @@ function cross_gcc () {
 		CFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
 		CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
 		>> ${LOGS}/cross-${GCCPKG}.log 2>&1 || exit 1
+	set +x
 	echo "Done."
 	test -d ${PKG_XBIN} && rm -rf ${PKG_XBIN}
 	mkdir -p ${PKG_XBIN}
-	echo -n "Installing CrossGCC..."
+	echo -n "Installing Cross Toolchain..."
+	set -x
 	make install-strip >> ${LOGS}/cross-${GCCPKG}.log 2>&1 || exit 1
+	set +x
 	echo "Done."
 	test_cross_gcc || exit 1
 	rm -rf ${XGCCBUILD}
@@ -248,36 +250,36 @@ function cross_gcc () {
 	echo ""
 }
 
-	function test_final_gcc () {
-		echo -n "Testing  Final GCC..."
-		CPUARCH=$(echo ${TARGETARCH} | sed 's/\(+*\)-.*/\1/g')
-		QEMU=0
-		test -f "$(which qemu-${CPUARCH} 2>/dev/null)" && QEMU=1
-		if [ "${QEMU}" -eq "1" ]
-			then
-			TESTSTRING="$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)"
-			cat > /tmp/${TESTSTRING}.c <<-EOF
-				#include <stdio.h>
+function test_target_gcc () {
+	echo -n "Testing  Final GCC..."
+	CPUARCH=$(echo ${TARGETARCH} | sed 's/\(+*\)-.*/\1/g')
+	QEMU=0
+	test -f "$(which qemu-${CPUARCH} 2>/dev/null)" && QEMU=1
+	if [ "${QEMU}" -eq "1" ]
+		then
+		TESTSTRING="$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)"
+		cat > /tmp/${TESTSTRING}.c <<-EOF
+			#include <stdio.h>
 
-				int
-				main (void)
-				{
-				printf ("${TESTSTRING}\n");
-				return 0;
-				}
-			EOF
-			echo -n "Compile test with qemu-${CPUARCH}..."
-			qemu-${CPUARCH} -L ${SYSROOT} ${PKG_BIN}/usr/bin/gcc /tmp/${TESTSTRING}.c -o /tmp/${TESTSTRING} || exit 1
-			echo -n "Test executable with qemu-${CPUARCH}..."
-			TEST=$(qemu-${CPUARCH} -L ${SYSROOT} /tmp/${TESTSTRING}) || exit 1
-			[ ! "${TEST}" == "${TESTSTRING}" ] && exit 1
-		fi
-		rm -f /tmp/${TESTSTRING}.c /tmp/${TESTSTRING}
-		echo "Done."
-		echo ""
-	}
+			int
+			main (void)
+			{
+			printf ("${TESTSTRING}\n");
+			return 0;
+			}
+		EOF
+		echo -n "Compile test with qemu-${CPUARCH}..."
+		qemu-${CPUARCH} -L ${SYSROOT} ${PKG_BIN}/usr/bin/gcc /tmp/${TESTSTRING}.c -o /tmp/${TESTSTRING} || exit 1
+		echo -n "Test executable with qemu-${CPUARCH}..."
+		TEST=$(qemu-${CPUARCH} -L ${SYSROOT} /tmp/${TESTSTRING}) || exit 1
+		[ ! "${TEST}" == "${TESTSTRING}" ] && exit 1
+	fi
+	rm -f /tmp/${TESTSTRING}.c /tmp/${TESTSTRING}
+	echo "Done."
+	echo ""
+}
 
-function final_gcc () {
+function target_gcc () {
 	echo "Target GCC for ${TARGETARCH}"
 	echo "===================================="
 	if [ "${WITH_NATIVE_BINUTILS}" = "1" ]
@@ -286,15 +288,10 @@ function final_gcc () {
 	else
 		create_base_sources --with-isl
 	fi
-	if [ "x${GCCBUILD}" != "x" ]
-	then
-		test -d ${GCCBUILD} && rm -rf ${GCCBUILD}
-		mkdir -p ${GCCBUILD}
-	else
-		GCCBUILD=$(mktemp -d)
-	fi
+	GCCBUILD=$(mktemp -d)
 	cd ${GCCBUILD}
-	echo -n "Configuring Final GCC..."
+	echo "Configuring target Toolchain sources..."
+	set -x
 	${BASESRC}/configure -v \
 	--build=${HOSTARCH} --host=${TARGETARCH} --target=${TARGETARCH} \
 	--program-suffix=-${GCCVER} \
@@ -303,8 +300,10 @@ function final_gcc () {
 	--disable-multilib \
 	host_configargs="gcc_cv_objdump=${TARGETARCH}-objdump" \
 	> ${LOGS}/${GCCPKG}.log 2>&1 || exit 1
+	set +x
 	echo "Done"
-	echo -n "Compiling Final GCC..."
+	echo "Compiling target Toolchain..."
+	set -x
 	make \
 		CFLAGS_FOR_BUILD="${COMMON_CFLAGS}" \
 		CXXFLAGS_FOR_BUILD="${COMMON_CFLAGS}" \
@@ -315,11 +314,14 @@ function final_gcc () {
 		CFLAGS_FOR_TARGET="${COMMON_CFLAGS} --sysroot=${SYSROOT}" \
 		CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS} --sysroot=${SYSROOT}" \
 		>> ${LOGS}/${GCCPKG}.log 2>&1 || exit 1
+	set +x
 	echo "Done."
 	test -d ${PKG_BIN} && rm -rf ${PKG_BIN}
 	mkdir -p ${PKG_BIN}
-	echo -n "Installing Final GCC..."
+	echo "Installing target Toolchain..."
+	set -x
 	make DESTDIR=${PKG_BIN} install-strip >> ${LOGS}/${GCCPKG}.log 2>&1 || exit 1
+	set +x
 	echo "Done."
 	echo "You can find the final GCC binaries for ${TARGETARCH} here:"
 	echo "${PKG_BIN}"
@@ -351,14 +353,11 @@ function finalize () {
 function all_steps () {
 	prepare_sources || exit 1
 	cross_gcc || exit 1
-	final_gcc || exit 1
+	target_gcc || exit 1
 	zip_gcc || exit 1
 	finalize || exit 1
 	exit 0
 }
-
-test ! -d ${TOOLCHAINS} && mkdir -p ${TOOLCHAINS}
-test ! -d ${LOGS} && mkdir -p ${LOGS}
 
 case "${1}" in
 	-h|--help|"")
@@ -372,7 +371,7 @@ case "${1}" in
 			-s --create-sysroot
 			-p --prepare-source
 			-x --cross-gcc
-			-f --final-gcc
+			-t --target-gcc
 			-S --send
 			-P --port
 			-v --version
@@ -389,6 +388,8 @@ case "${1}" in
 		echo "Recipe name: ${RECIPEFILE}"
 		echo ""
 		test ! -f "${RECIPEFILE}" && echo "${RECIPEFILE} doesn't exist" && exit 1
+		test ! -d ${TOOLCHAINS} && mkdir -p ${TOOLCHAINS}
+		test ! -d ${LOGS} && mkdir -p ${LOGS}
 		. $(realpath ${RECIPEFILE})
 		HPKG_NAME=${PKG_NAME}
 		TPKG_NAME=${PKG_NAME}
@@ -422,8 +423,8 @@ while (( "${#} - 1" )); do
 		-x|--cross-gcc)
 			cross_gcc || exit 1
 		;;
-		-f|--final-gcc)
-			final_gcc || exit 1
+		-t|--target-gcc)
+			target_gcc || exit 1
 			zip_gcc || exit 1
 		;;
 		-z|--zip-gcc)
