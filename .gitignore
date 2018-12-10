@@ -1,3 +1,4 @@
 build.log
 sysrootutils/packages/*
 tests/helloworld
+.vscode
