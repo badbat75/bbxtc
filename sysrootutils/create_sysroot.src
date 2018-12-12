@@ -11,3 +11,17 @@ http://archive.raspbian.org/raspbian/pool/main/m/mpfr4/libmpfr4_3.1.5-1_armhf.de
 http://archive.raspbian.org/raspbian/pool/main/m/mpfr4/libmpfr-dev_3.1.5-1_armhf.deb
 http://archive.raspbian.org/raspbian/pool/main/z/zlib/zlib1g_1.2.8.dfsg-5_armhf.deb
 http://archive.raspbian.org/raspbian/pool/main/z/zlib/zlib1g-dev_1.2.8.dfsg-5_armhf.deb
+
+[debian/stretch/aarch64-linux-gnu]
+http://ftp.it.debian.org/debian/pool/main/g/glibc/libc6_2.24-11+deb9u3_arm64.deb
+http://ftp.it.debian.org/debian/pool/main/g/glibc/libc6-dev_2.24-11+deb9u3_arm64.deb
+http://ftp.it.debian.org/debian/pool/main/g/glibc/libc-bin_2.24-11%2bdeb9u3_arm64.deb
+http://ftp.it.debian.org/debian/pool/main/g/gmp/libgmp10_6.1.2+dfsg-1_arm64.deb
+http://ftp.it.debian.org/debian/pool/main/g/gmp/libgmp-dev_6.1.2+dfsg-1_arm64.deb
+http://ftp.it.debian.org/debian/pool/main/l/linux/linux-libc-dev_4.18.20-2_arm64.deb
+http://ftp.it.debian.org/debian/pool/main/m/mpclib3/libmpc3_1.0.3-1_arm64.deb
+http://ftp.it.debian.org/debian/pool/main/m/mpclib3/libmpc-dev_1.0.3-1_arm64.deb
+http://ftp.it.debian.org/debian/pool/main/m/mpfr4/libmpfr4_3.1.5-1_arm64.deb
+http://ftp.it.debian.org/debian/pool/main/m/mpfr4/libmpfr-dev_3.1.5-1_arm64.deb
+http://ftp.it.debian.org/debian/pool/main/z/zlib/zlib1g_1.2.8.dfsg-5_arm64.deb
+http://ftp.it.debian.org/debian/pool/main/z/zlib/zlib1g-dev_1.2.8.dfsg-5_arm64.deb

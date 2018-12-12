@@ -25,7 +25,7 @@ mkdir -p ${LOGPATH}
 mkdir -p ${PKGPATH}
 
 
-function raspbian () {
+function debian () {
     for dl in $(cat ${SRCFILE} | sed -n "/^\[${DISTRO_NAME}\/${DISTRO_REL}\/${DISTRO_ARCH}\]/,/\[.*\]*/p" | grep "http")
     do
         echo ${dl}
@@ -36,8 +36,8 @@ function raspbian () {
 }
 
 case ${DISTRO_NAME} in
-    raspbian)
-                raspbian > ${LOGPATH}/${PROGRAM_NAME}.log 2>&1
+    debian|raspbian)
+                debian > ${LOGPATH}/${PROGRAM_NAME}.log 2>&1
                 ;;
 esac
 cd ${START_PWD}
