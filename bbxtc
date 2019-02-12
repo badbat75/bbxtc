@@ -17,7 +17,7 @@ export MAKEFLAGS="-j${NTHREADS} V=1"
 
 SCPPORT=22
 
-function create_sysroot() {
+function create_sysroot () {
 	echo -n "Creating SYSROOT environment..."
 	${PROGRAM_PATH}/sysrootutils/create_sysroot ${DISTRO_NAME} ${DISTRO_REL} ${DISTRO_ARCH} || exit 1
 	echo "Done"
