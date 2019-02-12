@@ -132,10 +132,13 @@ function host_gcc () {
 	set -x
 	make \
 		BOOT_CFLAGS="${COMMON_CFLAGS}" \
+		BOOT_LDFLAGS="${COMMON_LDFLAGS}" \
 		CFLAGS="${COMMON_CFLAGS} -march=native" \
 		CXXFLAGS="${COMMON_CFLAGS} -march=native" \
+		LDFLAGS="${COMMON_LDFLAGS}" \
 		CFLAGS_FOR_TARGET="${COMMON_CFLAGS} -march=native" \
 		CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS} -march=native" \
+		LDFLAGS_FOR_TARGET="${COMMON_LDFLAGS}" \
 		LD_LIBRARY_PATH=${HGCCBUILD}/prev-opcodes/.libs:${HGCCBUILD}/prev-bfd/.libs \
 		tooldir=${PKG_HBIN} \
 		>> ${LOGS}/host-${GCCPKG}.log 2>&1 || exit 1
@@ -219,10 +222,13 @@ function cross_gcc () {
 	PATH=${PKG_XBIN}/bin:${PATH} make \
 		CFLAGS_FOR_BUILD="${COMMON_CFLAGS} -march=native" \
 		CXXFLAGS_FOR_BUILD="${COMMON_CFLAGS} -march=native" \
+		LDFLAGS_FOR_BUILD="${COMMON_LDFLAGS}" \
 		CFLAGS="${COMMON_CFLAGS} -march=native" \
 		CXXFLAGS="${COMMON_CFLAGS} -march=native" \
+		LDFLAGS="${COMMON_LDFLAGS}" \
 		CFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
 		CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
+		LDFLAGS_FOR_TARGET="${COMMON_LDFLAGS}" \
 		>> ${LOGS}/cross-${GCCPKG}.log 2>&1 || exit 1
 	set +x
 	echo "Done."
@@ -307,12 +313,15 @@ function target_gcc () {
 	make \
 		CFLAGS_FOR_BUILD="${COMMON_CFLAGS}" \
 		CXXFLAGS_FOR_BUILD="${COMMON_CFLAGS}" \
+		LDFLAGS_FOR_BUILD="${COMMON_LDFLAGS}" \
 		CC="${TARGETARCH}-gcc --sysroot=${SYSROOT}" \
 		CXX="${TARGETARCH}-g++ --sysroot=${SYSROOT}" \
 		CFLAGS="${COMMON_CFLAGS}" \
 		CXXFLAGS="${COMMON_CFLAGS}" \
+		LDFLAGS="${COMMON_LDFLAGS}" \
 		CFLAGS_FOR_TARGET="${COMMON_CFLAGS} --sysroot=${SYSROOT}" \
 		CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS} --sysroot=${SYSROOT}" \
+		LDFLAGS_FOR_LDFLAGS="${COMMON_LDFLAGS}" \
 		>> ${LOGS}/${GCCPKG}.log 2>&1 || exit 1
 	set +x
 	echo "Done."
