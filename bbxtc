@@ -131,8 +131,8 @@ function host_gcc () {
 	echo "Compiling Host Toolchain..."
 	set -x
 	make \
-		BOOT_CFLAGS="${COMMON_CFLAGS}" \
-		BOOT_LDFLAGS="${COMMON_LDFLAGS}" \
+		BOOT_CFLAGS="${BOOT_CFLAGS:-}" \
+		BOOT_LDFLAGS="${BOOT_LDFLAGS:-}" \
 		CFLAGS="${COMMON_CFLAGS} -march=native" \
 		CXXFLAGS="${COMMON_CFLAGS} -march=native" \
 		LDFLAGS="${COMMON_LDFLAGS}" \
