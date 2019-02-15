@@ -10,6 +10,7 @@ NATIVES=${TOOLCHAINS}/natives
 LIBRARIES=${TOOLCHAINS}/libraries
 HCOMPILERS=${TOOLCHAINS}/hcompilers
 XCOMPILERS=${TOOLCHAINS}/xcompilers
+BUILDPATH="/tmp/bbxtc"
 LOGS=${TOOLCHAINS}/logs
 
 NTHREADS=$(echo $(nproc)/2+1 | bc)
@@ -80,9 +81,9 @@ function prepare_sources () {
 }
 
 function create_base_sources () {
-	BASESRC="$(mktemp -d)"
+	BASESRC="${BUILDPATH}/basesources"
 	test -d "${BASESRC}" && rm -rf ${BASESRC}
-	mkdir ${BASESRC}
+	mkdir -p ${BASESRC}
 	ln -fs ${GCCSRC}/* ${BASESRC}
 	while (( "${#}" )); do
 		case ${1} in
@@ -110,7 +111,9 @@ function host_gcc () {
 	else
 		create_base_sources --with-isl
 	fi
-	HGCCBUILD=$(mktemp -d)
+	HGCCBUILD="${BUILDPATH}/host_gcc"
+#	test -d "${HGCCBUILD}" && rm -rf ${HGCCBUILD}
+	test ! -d "${HGCCBUILD}" && mkdir -p ${HGCCBUILD}
 	cd ${HGCCBUILD}
 	echo "Configuring Host Toolchain sources..."
 	case $(uname -m) in
@@ -125,28 +128,36 @@ function host_gcc () {
 		--build=${HOSTARCH} --host=${HOSTARCH} --target=${HOSTARCH} \
 		--prefix=${PKG_HBIN} --mandir=${PKG_HBIN}/share/man --infodir=${PKG_HBIN}/share/info \
 		${BINUTILSCOMMONCONFIG} ${GCCCOMMONCONFIG} ${BINUTILSHOSTCONFIG} ${GCCHOSTCONFIG} \
+		CC_FOR_BUILD="${CC_WRAPPER:+${CC_WRAPPER} }${CC_FOR_BUILD:-${HOSTARCH}-gcc}" \
+		CXX_FOR_BUILD="${CC_WRAPPER:+${CC_WRAPPER} }${CXX_FOR_BUILD:-${HOSTARCH}-g++}" \
+		LD_FOR_BUILD="${LD_FOR_BUILD:-${HOSTARCH}-ld.gold}" \
+		CFLAGS_FOR_BUILD="${COMMON_CFLAGS} -march=native" \
+		CXXFLAGS_FOR_BUILD="${COMMON_CFLAGS} -march=native" \
+		LDFLAGS_FOR_BUILD="${COMMON_LDFLAGS}" \
+		CC="${CC_WRAPPER:+${CC_WRAPPER} }${CC:-${HOSTARCH}-gcc}" \
+		CXX="${CC_WRAPPER:+${CC_WRAPPER} }${CXX:-${HOSTARCH}-g++}" \
+		LD="${LD:-${HOSTARCH}-ld.gold}" \
+		CFLAGS="${COMMON_CFLAGS} -march=native" \
+		CXXFLAGS="${COMMON_CFLAGS} -march=native" \
+		LDFLAGS="${COMMON_LDFLAGS}" \
+		CC_FOR_TARGET="${CC_WRAPPER:+${CC_WRAPPER} }${CC:-${HOSTARCH}-gcc}" \
+		CXX_FOR_TARGET="${CC_WRAPPER:+${CC_WRAPPER} }${CXX:-${HOSTARCH}-g++}" \
+		LD_FOR_TARGET="${LD_FOR_TARGET:-${HOSTARCH}-ld.gold}" \
+		CFLAGS_FOR_TARGET="${COMMON_CFLAGS} -march=native" \
+		CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS} -march=native" \
+		LDFLAGS_FOR_TARGET="${COMMON_LDFLAGS}" \
 		> ${LOGS}/host-${GCCPKG}.log 2>&1 || exit 1
 	set +x
 	echo "Done"
 	echo "Compiling Host Toolchain..."
 	set -x
 	make \
-		STAGE_CC_WRAPPER="${CC_WRAPPER:-}" \
-		BOOT_CFLAGS="${BOOT_CFLAGS:-}" \
-		BOOT_LDFLAGS="${BOOT_LDFLAGS:-}" \
-		CC="${CC_WRAPPER:+${CC_WRAPPER} }${CC:-gcc}" \
-		CXX="${CC_WRAPPER:+${CC_WRAPPER} }${CXX:-g++}" \
-		CFLAGS="${COMMON_CFLAGS} -march=native" \
-		CXXFLAGS="${COMMON_CFLAGS} -march=native" \
-		LDFLAGS="${COMMON_LDFLAGS}" \
-		CC_FOR_TARGET="${CC_WRAPPER:+${CC_WRAPPER} }${CC:-gcc}" \
-		CXX_FOR_TARGET="${CC_WRAPPER:+${CC_WRAPPER} }${CXX:-g++}" \
-		CFLAGS_FOR_TARGET="${COMMON_CFLAGS} -march=native" \
-		CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS} -march=native" \
-		LDFLAGS_FOR_TARGET="${COMMON_LDFLAGS}" \
+		STAGE_CC_WRAPPER="${CC_WRAPPER}" \
+		BOOT_CFLAGS="${BOOT_CFLAGS} -march=native" \
+		BOOT_LDFLAGS="${BOOT_LDFLAGS}" \
 		LD_LIBRARY_PATH=${HGCCBUILD}/prev-opcodes/.libs:${HGCCBUILD}/prev-bfd/.libs \
 		tooldir=${PKG_HBIN} \
-		profiledbootstrap \
+		\
 		>> ${LOGS}/host-${GCCPKG}.log 2>&1 || exit 1
 	set +x
 	echo "Done."
@@ -212,7 +223,9 @@ function cross_gcc () {
 	else
 		create_base_sources --with-isl
 	fi
-	XGCCBUILD=$(mktemp -d)
+	XGCCBUILD="${BUILDPATH}/cross_gcc"
+#	test -d "${XGCCBUILD}" && rm -rf ${XGCCBUILD}
+	test ! -d "${XGCCBUILD}" && mkdir -p ${XGCCBUILD}
 	cd ${XGCCBUILD}
 	echo "Configuring Cross Toolchain sources..."
 	set -x
@@ -220,21 +233,31 @@ function cross_gcc () {
 		--build=${HOSTARCH} --host=${HOSTARCH} --target=${TARGETARCH} \
 		--prefix=${PKG_XBIN} --libdir=${PKG_XBIN}/lib --libexecdir=${PKG_XBIN}/lib --with-sysroot=${SYSROOT} \
 		${BINUTILSCOMMONCONFIG} ${GCCCOMMONCONFIG} ${BINUTILSCROSSCONFIG} ${GCCCROSSCONFIG} \
+		CC_FOR_BUILD="${CC_WRAPPER:+${CC_WRAPPER} }${CC_FOR_BUILD:-${HOSTARCH}-gcc}" \
+		CXX_FOR_BUILD="${CC_WRAPPER:+${CC_WRAPPER} }${CXX_FOR_BUILD:-${HOSTARCH}-g++}" \
+		LD_FOR_BUILD="${LD_FOR_BUILD:-${HOSTARCH}-ld.gold}" \
+		CFLAGS_FOR_BUILD="${COMMON_CFLAGS} -march=native" \
+		CXXFLAGS_FOR_BUILD="${COMMON_CFLAGS} -march=native" \
+		LDFLAGS_FOR_BUILD="${COMMON_LDFLAGS}" \
+		CC="${CC_WRAPPER:+${CC_WRAPPER} }${CC:-${HOSTARCH}-gcc}" \
+		CXX="${CC_WRAPPER:+${CC_WRAPPER} }${CXX:-${HOSTARCH}-g++}" \
+		LD="${LD:-${HOSTARCH}-ld.gold}" \
+		CFLAGS="${COMMON_CFLAGS} -march=native" \
+		CXXFLAGS="${COMMON_CFLAGS} -march=native" \
+		LDFLAGS="${COMMON_LDFLAGS}" \
+		CC_FOR_TARGET="${CC_WRAPPER:+${CC_WRAPPER} }${CC_FOR_TARGET:-${TARGETARCH}-gcc}" \
+		CXX_FOR_TARGET="${CC_WRAPPER:+${CC_WRAPPER} }${CXX_FOR_TARGET:-${TARGETARCH}-g++}" \
+		LD_FOR_TARGET="${LD_FOR_TARGET:-${TARGETARCH}-ld.gold}" \
+		CFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
+		CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
+		LDFLAGS_FOR_TARGET="${COMMON_LDFLAGS}" \
 		> ${LOGS}/cross-${GCCPKG}.log 2>&1 || exit 1
 	set +x
 	echo "Done"
 	echo "Compiling Cross Toolchain..."
 	set -x
 	PATH=${PKG_XBIN}/bin:${PATH} make \
-		CFLAGS_FOR_BUILD="${COMMON_CFLAGS} -march=native" \
-		CXXFLAGS_FOR_BUILD="${COMMON_CFLAGS} -march=native" \
-		LDFLAGS_FOR_BUILD="${COMMON_LDFLAGS}" \
-		CFLAGS="${COMMON_CFLAGS} -march=native" \
-		CXXFLAGS="${COMMON_CFLAGS} -march=native" \
-		LDFLAGS="${COMMON_LDFLAGS}" \
-		CFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
-		CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS}" \
-		LDFLAGS_FOR_TARGET="${COMMON_LDFLAGS}" \
+		STAGE_CC_WRAPPER="${CC_WRAPPER:-}" \
 		>> ${LOGS}/cross-${GCCPKG}.log 2>&1 || exit 1
 	set +x
 	echo "Done."
@@ -301,33 +324,44 @@ function target_gcc () {
 		create_base_sources --with-isl
 	fi
 	GCCBUILD=$(mktemp -d)
+	GCCBUILD="${BUILDPATH}/target_gcc"
+#	test -d "${GCCBUILD}" && rm -rf ${GCCBUILD}
+	test ! -d "${GCCBUILD}" && mkdir -p ${GCCBUILD}
 	cd ${GCCBUILD}
 	echo "Configuring target Toolchain sources..."
 	set -x
 	${BASESRC}/configure -v \
-	--build=${HOSTARCH} --host=${TARGETARCH} --target=${TARGETARCH} \
-	--program-suffix=-${GCCVER} \
-	--prefix=/usr --libdir=/usr/lib/${TARGETARCH}/${GCCVER} --libexecdir=/usr/lib --with-slibdir=/lib/${TARGETARCH}/${GCCVER} --with-sysroot=/ \
-	${BINUTILSCOMMONCONFIG} ${GCCCOMMONCONFIG} ${BINUTILSTARGETCONFIG} ${GCCTARGETCONFIG} \
-	--disable-multilib \
-	host_configargs="gcc_cv_objdump=${TARGETARCH}-objdump" \
-	> ${LOGS}/${GCCPKG}.log 2>&1 || exit 1
+		--build=${HOSTARCH} --host=${TARGETARCH} --target=${TARGETARCH} \
+		--program-suffix=-${GCCVER} \
+		--prefix=/usr --libdir=/usr/lib/${TARGETARCH}/${GCCVER} --libexecdir=/usr/lib --with-slibdir=/lib/${TARGETARCH}/${GCCVER} --with-sysroot=/ \
+		${BINUTILSCOMMONCONFIG} ${GCCCOMMONCONFIG} ${BINUTILSTARGETCONFIG} ${GCCTARGETCONFIG} \
+		--disable-multilib \
+		host_configargs="gcc_cv_objdump=${TARGETARCH}-objdump" \
+		CC_FOR_BUILD="${CC_WRAPPER:+${CC_WRAPPER} }${CC_FOR_BUILD:-${HOSTARCH}-gcc}" \
+		CXX_FOR_BUILD="${CC_WRAPPER:+${CC_WRAPPER} }${CXX_FOR_BUILD:-${HOSTARCH}-g++}" \
+		LD_FOR_BUILD="${LD_FOR_BUILD:-${HOSTARCH}-ld.gold}" \
+		CFLAGS_FOR_BUILD="${COMMON_CFLAGS}" \
+		CXXFLAGS_FOR_BUILD="${COMMON_CFLAGS}" \
+		LDFLAGS_FOR_BUILD="${COMMON_LDFLAGS}" \
+		CC="${CC_WRAPPER:+${CC_WRAPPER} }${CC:-${TARGETARCH}-gcc} --sysroot=${SYSROOT}" \
+		CXX="${CC_WRAPPER:+${CC_WRAPPER} }${CXX:-${TARGETARCH}-g++} --sysroot=${SYSROOT}" \
+		LD="${LD:-${TARGETARCH}-ld.gold}" \
+		CFLAGS="${COMMON_CFLAGS}" \
+		CXXFLAGS="${COMMON_CFLAGS}" \
+		LDFLAGS="${COMMON_LDFLAGS}" \
+		CC_FOR_TARGET="${CC_WRAPPER:+${CC_WRAPPER} }${CC_FOR_TARGET:-${TARGETARCH}-gcc}" \
+		CXX_FOR_TARGET="${CC_WRAPPER:+${CC_WRAPPER} }${CXX_FOR_TARGET:-${TARGETARCH}-g++}" \
+		LD_FOR_TARGET="${LD_FOR_TARGET:-${TARGETARCH}-ld.gold}" \
+		CFLAGS_FOR_TARGET="${COMMON_CFLAGS} --sysroot=${SYSROOT}" \
+		CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS} --sysroot=${SYSROOT}" \
+		LDFLAGS_FOR_LDFLAGS="${COMMON_LDFLAGS}" \
+		> ${LOGS}/${GCCPKG}.log 2>&1 || exit 1
 	set +x
 	echo "Done"
 	echo "Compiling target Toolchain..."
 	set -x
 	make \
-		CFLAGS_FOR_BUILD="${COMMON_CFLAGS}" \
-		CXXFLAGS_FOR_BUILD="${COMMON_CFLAGS}" \
-		LDFLAGS_FOR_BUILD="${COMMON_LDFLAGS}" \
-		CC="${TARGETARCH}-gcc --sysroot=${SYSROOT}" \
-		CXX="${TARGETARCH}-g++ --sysroot=${SYSROOT}" \
-		CFLAGS="${COMMON_CFLAGS}" \
-		CXXFLAGS="${COMMON_CFLAGS}" \
-		LDFLAGS="${COMMON_LDFLAGS}" \
-		CFLAGS_FOR_TARGET="${COMMON_CFLAGS} --sysroot=${SYSROOT}" \
-		CXXFLAGS_FOR_TARGET="${COMMON_CFLAGS} --sysroot=${SYSROOT}" \
-		LDFLAGS_FOR_LDFLAGS="${COMMON_LDFLAGS}" \
+		STAGE_CC_WRAPPER="${CC_WRAPPER:-}" \
 		>> ${LOGS}/${GCCPKG}.log 2>&1 || exit 1
 	set +x
 	echo "Done."
