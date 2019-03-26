@@ -112,7 +112,7 @@ function host_gcc () {
 		create_base_sources --with-isl
 	fi
 	HGCCBUILD="${BUILDPATH}/host_gcc"
-#	test -d "${HGCCBUILD}" && rm -rf ${HGCCBUILD}
+	#test -d "${HGCCBUILD}" && rm -rf ${HGCCBUILD}
 	test ! -d "${HGCCBUILD}" && mkdir -p ${HGCCBUILD}
 	cd ${HGCCBUILD}
 	echo "Configuring Host Toolchain sources..."
